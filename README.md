@@ -1,7 +1,7 @@
 # Mastering Shiny
 
 
-## Club de lectura de [R-Ladies Buenos Aires](https://github.com/RLadies-BA)<img height="27" src="https://avatars.githubusercontent.com/u/38664570?s=200&v=4" alt="rladies buenos aires logo"> & [R en Buenos Aires](https://github.com/renbaires) <img height="27" src="https://avatars.githubusercontent.com/u/43609757" alt="r en buenos aires logo">
+## Club de lectura organizado por [R-Ladies Buenos Aires](https://github.com/RLadies-BA)<img height="27" src="https://avatars.githubusercontent.com/u/38664570?s=200&v=4" alt="rladies buenos aires logo"> & [R en Buenos Aires](https://github.com/renbaires) <img height="27" src="https://avatars.githubusercontent.com/u/43609757" alt="r en buenos aires logo">
 
 <table>
   <tr>
@@ -17,8 +17,8 @@
 
 ## Encuentros 
 
-### Horario 18:00 - 19:00 (UTC-3)
-### Virtual con inscripción prevía en meetup.com para cada encuentro
+### Horario 18:00 - 19:30 (UTC-3)
+### Virtual con inscripción prevía en meetup.com de los capítulos para cada encuentro
 
 ### ¿Querés presentar un capítulo? Completá el formulario  [http://tiny.cc/club_de_lectura_shiny](http://tiny.cc/club_de_lectura_shiny) 
 
