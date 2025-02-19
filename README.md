@@ -17,7 +17,7 @@
 
 ## Encuentros 
 
-### Horario 18:00 - 19:30 (UTC-3)
+### Horario 18:30 - 20:00 (UTC-3)
 ### Virtual con inscripción prevía en meetup.com de los capítulos para cada encuentro
 
 ### ¿Querés presentar un capítulo? Completá el formulario  [http://tiny.cc/club_de_lectura_shiny](http://tiny.cc/club_de_lectura_shiny) 
