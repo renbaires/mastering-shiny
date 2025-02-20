@@ -28,7 +28,7 @@
 |-------------|-----------------------------------------|----------------------|-----------------------------------------|--------------------|
 | 2025-03-05  |Your first shiny app y Basic UI (capítulos 1 y 2) | [María Cristina Nanton](https://github.com/mcnanton) & [Jesica Formoso](https://github.com/JFormoso) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-03-19  | Basic reactivity (capítulo 3) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
-| 2025-04-16  | Workflow (capítulo 5) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
+| 2025-04-16  | Workflow (capítulo 5) | [Monica Alonso](https://github.com/monialo2000) & [Priscilla Minoti](https://github.com/pmnatural) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-04-30  | Layout, themes, HTML (capítulo 6) | [Luis Verde Arregoitia](https://github.com/luisdva/) & [Virginia García Alonso](https://github.com/virginiagarciaalonso) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-05-14  | Recapitular encuentros anteriores y User feedback (capítulo 8) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-05-28  | Uploads and downloads (capítulo 9) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
