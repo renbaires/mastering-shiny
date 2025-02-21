@@ -33,7 +33,7 @@
 | 2025-05-14  | Recapitular encuentros anteriores y User feedback (capítulo 8) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-05-28  | Uploads and downloads (capítulo 9) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-06-11  | Dynamic UI (capítulo 10) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
-| 2025-06-25  | Tidy evaluations (Capítulo 12) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
+| 2025-06-25  | Tidy evaluations (Capítulo 12) | Carolina Mengoni | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-07-16  | Why reactivity?, The reactive graph y Reactive building blocks (capítulos 13 a 15) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-07-30  | Functions y Shiny modules (capítulos 18 y 19) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 
