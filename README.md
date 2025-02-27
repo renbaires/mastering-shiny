@@ -15,12 +15,21 @@
 </table>
 
 
-## Encuentros 
+## Encuentros virtuales
+### Horario 18:30 - 20:00 (UTC-3) con inscripción prevía en meetup.com de los capítulos para cada encuentro
 
-### Horario 18:30 - 20:00 (UTC-3)
-### Virtual con inscripción prevía en meetup.com de los capítulos para cada encuentro
+### Sobre el Club de lectura
+Cada encuentro es una oportunidad de poner en común lo que entendimos y aprendimos de los capítulos asignados. **IMPORTANTE: ¡No es una clase!** 
 
-### ¿Querés presentar un capítulo? Completá el formulario  [http://tiny.cc/club_de_lectura_shiny](http://tiny.cc/club_de_lectura_shiny) 
+Hay aproximadamente tres tipos de compromiso con el club de lectura y los tres son muy bienvenidos:
+-  **Bajo (1-2 horas por semana)**: Leer los capítulos correspondientes, seguir los ejemplos en cada uno, y participar en la reunión virtual cada dos semanas.
+-  **Intermedio (2-3 horas por semana, recomendado)**: igual al bajo pero también resolviendo al menos un ejercicio por capítulo
+-  **Alto (1 día por semana)**: igual al intermedio pero resolviendo toda la ejercitación y llevando disparadores al encuentro
+
+### ¿Querés presentar en uno de los encuentros? Completá el formulario  [http://tiny.cc/club_de_lectura_shiny](http://tiny.cc/club_de_lectura_shiny) 
+-  Cada presentación debe llevar como máximo unos 30’: utilizaremos el tiempo restante del meetup para poner en común dudas, resoluciones de ejercicios. Sirve mucho incluir en tu presentación la resolución de un ejercicio, o cómo intentaste resolverlo, o cómo lo harías. 
+-  Por favor, compartí con las organizadoras tu presentación post-meetup así la linkeamos en nuestro repositorio de materiales
+
 
 ### Cronograma
 
