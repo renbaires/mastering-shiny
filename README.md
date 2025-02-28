@@ -48,6 +48,9 @@ Hay aproximadamente tres tipos de compromiso con el club de lectura y los tres s
 
 
 
+### Código de Conducta
+Todos los espacios de participación de R-Ladies & R en Buenos Aires, ya sean conferencias, charlas, talleres, reuniones o interacciones en redes y otros medios en línea, se rigen por nuestro Código de Conducta. Podés leerlos acá:
 
-
+- [Código de Conducta de R-Ladies Buenos Aires](https://github.com/rladies/.github/blob/master/CODE_OF_CONDUCT.md#spanish)
+- [Código de Conducta de R en Buenos Aires]( https://renbaires.github.io/cdc)
 
