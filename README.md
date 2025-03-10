@@ -36,7 +36,7 @@ Hay aproximadamente tres tipos de compromiso con el club de lectura y los tres s
 | Fecha       | Capítulo                    | Presentadores              | Materiales                                    | Video |
 |-------------|-----------------------------------------|----------------------|-----------------------------------------|--------------------|
 | 2025-03-05  |Your first shiny app y Basic UI (capítulos 1 y 2) | [María Cristina Nanton](https://github.com/mcnanton) & [Jesica Formoso](https://github.com/JFormoso) | [Presentación](https://mcnanton.github.io/RLadiesBA-Shiny_book_club-1/)| Link disponible posterior al encuentro |
-| 2025-03-19  | Basic reactivity (capítulo 3) | Teresa Boca | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
+| 2025-03-19  | Basic reactivity (capítulo 3) | [Teresa Boca](https://github.com/tereboca) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-04-16  | Workflow (capítulo 5) | [Monica Alonso](https://github.com/monialo2000) & [Priscilla Minoti](https://github.com/pmnatural) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-04-30  | Layout, themes, HTML (capítulo 6) | [Luis Verde Arregoitia](https://github.com/luisdva/) & [Virginia García Alonso](https://github.com/virginiagarciaalonso) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-05-14  | Recapitular encuentros anteriores y User feedback (capítulo 8) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
