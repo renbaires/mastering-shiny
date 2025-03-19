@@ -40,7 +40,7 @@ Hay aproximadamente tres tipos de compromiso con el club de lectura y los tres s
 | 2025-04-16  | Workflow (capítulo 5) | [Monica Alonso](https://github.com/monialo2000) & [Priscilla Minoti](https://github.com/pmnatural) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-04-30  | Layout, themes, HTML (capítulo 6) | [Luis Verde Arregoitia](https://github.com/luisdva/) & [Virginia García Alonso](https://github.com/virginiagarciaalonso) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-05-14  | Recapitular encuentros anteriores y User feedback (capítulo 8) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
-| 2025-05-28  | Uploads and downloads (capítulo 9) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
+| 2025-05-28  | Uploads and downloads (capítulo 9) | Graciela Bellotti & Mariana Berro | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-06-11  | Dynamic UI (capítulo 10) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-06-25  | Tidy evaluations (Capítulo 12) | Carolina Mengoni | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | 2025-07-16  | Why reactivity?, The reactive graph y Reactive building blocks (capítulos 13 a 15) | A confirmar | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
