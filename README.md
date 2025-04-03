@@ -33,6 +33,11 @@ Hay aproximadamente tres tipos de compromiso con el club de lectura y los tres s
 
 ### Cronograma
 
+#### Bienvenida
+[Presentación de bienvenida y pautas del encuentro](https://ariibard.github.io/mastering-shiny-welcome/#/club-de-lectura). Elaborado por Ariana Bardauil - organizadora R en Buenos Aires.
+
+#### Expositores 
+
 | Encuentro   | Fecha       | Capítulo                    | Presentadores              | Materiales                                    | 
 |-------------|-------------|-----------------------------------------|----------------------|-----------------------------------------|
 | #1 | 2025-03-05  |Your first shiny app y Basic UI (capítulos 1 y 2) | [María Cristina Nanton](https://github.com/mcnanton) & [Jesica Formoso](https://github.com/JFormoso) | [Presentación](https://mcnanton.github.io/RLadiesBA-Shiny_book_club-1/)|
