@@ -1,0 +1,25 @@
+/* style.css */
+
+/* Tamaño de letra general más pequeño */
+.reveal section {
+  font-size: 0.85em;
+}
+
+/* Reglas para el logo en general (escritorio y pantallas grandes) */
+.reveal .slide-logo {
+  max-height: 8.8rem !important; /* Duplicar el alto original de 2.2rem */
+  width: auto !important;       /* Mantener la proporción del ancho */
+  /* Opcional: ajustar la posición si el logo es muy grande y se superpone */
+  /* bottom: 10px !important; */
+  /* right: 10px !important; */
+}
+
+/* Reglas para el logo en pantallas pequeñas (por ejemplo, móviles) */
+/* Reveal.js suele reducir el logo automáticamente en pantallas pequeñas.
+   Aquí lo duplicamos también para estas pantallas, si aplica. */
+@media screen and (max-width: 800px) {
+  .reveal .slide-logo {
+    max-height: 4.4rem !important; /* Duplicar el alto original de 1.1rem para móviles */
+  }
+}
+

@@ -1,0 +1,3298 @@
+---
+title: "🚀 Mastering Shiny - Capítulo 10: UI Dinámica"
+subtitle: "De Apps Estáticas a Experiencias Interactivas que Responden al Usuario"
+author: "Basado en el libro de Hadley Wickham"
+format: 
+  revealjs:
+    highlight-style: github
+    theme: dark
+slide-number: true
+chalkboard: true
+preview-links: auto
+logo: "https://raw.githubusercontent.com/renbaires/2024-12-20-welcome/main/imagenes/logo.png"
+css: style.css
+editor: source
+execute:
+  echo: true
+warning: false
+message: false
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(dplyr, warn.conflicts = FALSE)
+library(purrr)
+library(vroom) # Para el ejemplo de ventas, aunque no lo ejecutaremos directamente por dependencia de archivo
+library(openintro, warn.conflicts = FALSE) # Para ejercicio 2
+library(usdata)
+library(gapminder) # Para ejercicio 3
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.width = 7, fig.height = 5, fig.align = 'center')
+
+# Datos para ejercicio 2
+states <- unique(usdata::county$state)
+
+# Datos para ejercicio 3
+continents <- unique(gapminder::gapminder$continent)
+
+# Helper para %||% (usado más adelante)
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
+# --- GENERAR EL TIBBLE 'sales' ---
+sales <- tibble(
+  TERRITORY = c(
+    "EMEA", "EMEA", "EMEA", "EMEA","EMEA", 
+    "APAC", "APAC", "APAC", 
+    "Japan", "Japan", "NA"
+  ),
+  CUSTOMERNAME = c(
+    "Lyon Souveniers", "Lyon Souveniers", "Berlin Gifts", "Berlin Gifts","Berlin Gifts",
+    "Tokyo Traders", "Tokyo Traders", "Sydney Supplies",
+    "Kyoto Crafts", "Kyoto Crafts", "Unassigned Client"
+  ),
+  ORDERNUMBER = c(10101, 10105, 10102, 10106, 10106,20001, 20002, 20003, 30001, 30005, 99999),
+  PRODUCTCODE = c("S10_1678", "S10_1949", "S10_2016", "S10_4698", "S10_1678",
+                  "S12_1099", "S12_2823", "S12_3380", 
+                  "S18_1749", "S18_2248", "S18_3232"),
+  QUANTITYORDERED = c(25, 18, 30, 15, 35, 40, 22, 10, 35, 12, 5),
+  PRICEEACH = c(54.99, 62.00, 38.50, 95.00, 54.99, 25.00, 31.50, 70.00, 48.00, 51.00, 120.00)
+)
+```
+
+## 🎭 ¿Alguna vez han sentido que sus Apps parecen folletos?
+
+::::: columns
+::: {.column width="50%"}
+### 😴 Apps Tradicionales:
+
+-   UI definida al inicio
+-   "Así como se presenta se queda..."
+-   **Usuaria:** "Quisiera que fuera más flexible"
+-   **Desarrolladora:** "Traté de incluir todas las opciones" 🤷
+:::
+
+::: {.column width="50%"}
+### ✨ UI Dinámica:
+
+-   Apps que **RESPONDEN** al usuario
+-   Se adaptan en tiempo real
+-   **Usuaria:** "¡Wow, ahora puedo elegir lo que necesito!"
+-   **Desarrolladora:** "Hicimos un poco de magia" 🧙
+:::
+:::::
+
+::: notes
+¡Hola a todos y todas y bienvenidos a esta presentación sobre el Capítulo 10 de "Mastering Shiny": UI Dinámica! Soy Mauro y hoy vamos a transformar nuestras aplicaciones Shiny de robots estáticos en asistentes flexibles que le dan participación a sus usuarios.
+
+Imaginen por un momento que están usando una aplicación web. En el mundo tradicional de Shiny, es como tener un formulario de papel: una vez que lo imprimieron, eso es todo. No importa qué escriban en la primera casilla, el resto del formulario sigue igual.
+
+Pero, ¿qué pasaría si ese formulario fuera inteligente? Si cuando escriben "Mendoza" en el campo de Provincia, automáticamente aparecen las ciudades de esa provincia en el siguiente campo. Si cuando seleccionan "análisis avanzado", aparecen controles que antes no estaban ahí. Eso es UI dinámica, y es lo que convierte una herramienta no muy inteligente en una experiencia verdaderamente fluida.
+
+Modificaremos entonces la interfaz de usuario (la UI) en tiempo real, directamente desde "la lógica" de nuestra aplicación en la función `server`.
+:::
+
+------------------------------------------------------------------------
+
+## 🛠️3 Problemas y 3 Herramientas "mágicas"🦉 de UI Dinámicas
+
+Hay tres técnicas principales:
+
+1.  **Actualizar Inputs:** Modificar parámetros de controles existentes (`update*Input()`).
+2.  **Visibilidad Dinámica:** Mostrar/ocultar secciones de UI condicionalmente (`tabsetPanel(type='hidden')`).
+3.  **Crear UI con Código:** Generar UI programáticamente desde el servidor (`uiOutput`/`renderUI`).
+
+::: notes
+Para lograr esta UI dinámica, Shiny nos ofrece tres técnicas principales. Cada una tiene sus fortalezas y se adapta mejor a diferentes escenarios.
+
+1.  La primera es **Actualizar Inputs**. Esta es la forma más sencilla y común de hacer la UI dinámica. Se trata de modificar los parámetros de un control de entrada que ya existe en la UI. Por ejemplo, cambiar el valor por defecto, las opciones de un selector, o el rango de un slider. Lo hacemos con la familia de funciones `update*Input()`: por ejemplo updateNumericInput(), updateCheckboxInput(), updateSliderInput() y otra docena de funciones.
+
+2.  La segunda es la **Visibilidad Dinámica**. Esto nos permite mostrar u ocultar grandes bloques de UI de forma condicional, sin tener que recrearlos. Es muy útil para interfaces que cambian drásticamente según la elección del usuario, como un "asistente" o "wizard" paso a paso. Se usa `tabsetPanel()` con `type = "hidden"`.
+
+3.  Y la tercera, y más flexible, es **Crear UI con Código**. Esta técnica nos permite generar la interfaz de usuario programáticamente desde la función `server`, construyendo elementos HTML con funciones de Shiny como `textInput()`, `sliderInput()`, etc. Para esto usamos `uiOutput()` en la UI y `renderUI()` en el servidor. Es la más potente, pero también la que requiere más cuidado.
+
+Es importante no perder de vista que estas herramientas son muy poderosas, pero su uso puede aumentar la complejidad de nuestra aplicación. Por eso, la recomendación es siempre intentar usar la técnica más simple que resuelva tu problema. No uses `renderUI` si un `update*Input` es suficiente.
+:::
+
+------------------------------------------------------------------------
+
+## 🔄 Actualizar Inputs: **"Que la página refleje lo que el usuario quiere"**
+
+-   Modifica controles existentes
+-   `update*Input()`
+-   Más rápido y eficiente
+
+::: notes
+Empecemos por la primera técnica, actualizar los inputs que ya tenemos en la shiny app.
+:::
+
+------------------------------------------------------------------------
+
+### 🎮 Ejemplo Básico: Actualizar Rango de Slider
+
+**💡 Objetivo:** Dos `numericInput` controlan el `min` y `max` de un `sliderInput`.
+
+**🎯 Cómo:** `observeEvent()` detecta cambios en `input$min` o `input$max` y llama a `updateSliderInput()` 🔥.
+
+![](img/actualizar_rango_slider.jpg){width="50%"}
+
+::: notes
+Veamos un ejemplo muy sencillo. Nuestro objetivo es permitir que el usuario defina los límites mínimo y máximo de un `sliderInput` usando dos `numericInput` separados.
+
+En la UI, tenemos tres controles: un `numericInput` para el mínimo, otro para el máximo, y el `sliderInput` que queremos controlar. [▶]{style="color: #FF0000;"}
+:::
+
+------------------------------------------------------------------------
+
+### 🎮 veamos el script
+
+```{r update-slider-range-app, eval=FALSE}
+#| code-line-numbers: "|7-12|7-8|10-11"
+#| echo: true
+#| RStudio-View: Source
+
+ui <- fluidPage(
+  numericInput("min", "Mínimo", 0),
+  numericInput("max", "Máximo", 3),
+  sliderInput("n", "n", min = 0, max = 3, value = 1, step = 1)
+)
+server <- function(input, output, session) {
+  observeEvent(input$min, {
+    updateSliderInput(session, inputId = "n", min = input$min) #<- session es necesario ahora
+  })
+  observeEvent(input$max, {
+    updateSliderInput(session, inputId = "n", max = input$max) #<- session es necesario ahora
+  })
+}
+shinyApp(ui, server)
+```
+
+::: notes
+En la UI vemos los inputs que mencionamos...
+
+En el servidor, usamos dos `observeEvent`. [▶]{style="color: #00FF00;"}
+
+El primero (línea 8) escucha los cambios en `input$min`. Cuando `input$min` cambia, llamamos a `updateSliderInput()`. Le pasamos `session` (que siempre es un argumento necesario en estas funciones), el `inputId` del slider que queremos actualizar (que es "n"), y el nuevo valor para el `min` del slider, que es `input$min`. [▶]{style="color: #FF0000;"} Hacemos lo mismo para el `input$max` (línea 11).
+
+Si lo ejecutamos (pueden copiar y pegar el código en RStudio para verlo en acción), verán cómo al cambiar los números en las cajas de texto, el rango del slider se ajusta automáticamente. Es un claro ejemplo de cómo la UI reacciona a las acciones del usuario. **PASAMOS A RSTUDIO CON ESC, L 149-168, VERIFICAMOS Y VOLVEMOS CON F** También podríamos ver el siguiente script L182 
+:::
+
+------------------------------------------------------------------------
+
+```{r radio_circulo}
+#| eval: false
+#| include: false
+library(shiny)
+
+ui <- fluidPage(
+    titlePanel("Intersección de una línea con un circulo"),
+    sidebarLayout(
+        sidebarPanel(
+            numericInput("radio", "Radio del circulo", value = 5, min = 0.1, step = 0.5),
+            # Se inicializa con un step pequeño para permitir decimales
+            sliderInput("angulo", "Angulo de la linea (grados)", value = 45, min = 0, max = 90, step = 0.01)
+        ),
+        mainPanel(
+            plotOutput("plot")
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    
+    # Observador que actualiza el rango y el step del slider del angulo
+    # observe({
+    #     radioCirculo <- input$radio
+    #     centro <- c(10, 10)
+    #     # Distancia desde el origen (0,0) hasta el centro del circulo
+    #     distancia <- sqrt(centro[1]^2 + centro[2]^2)  # 10*sqrt(2) ~ 14.14
+    #     
+    #     if (radioCirculo < distancia) {
+    #         # Calcula el ángulo central y la desviación phi
+    #         anguloCentral <- atan2(centro[2], centro[1])   # 45° en radianes
+    #         phi <- asin(radioCirculo / distancia)
+    #         # Se convierten los extremos a grados y se redondean a dos decimales
+    #         anguloMin <- round((anguloCentral - phi) * 180 / pi, 2)
+    #         anguloMax <- round((anguloCentral + phi) * 180 / pi, 2)
+    #     } else {
+    #         # Si el origen está dentro del circulo, se permite cualquier ángulo
+    #         anguloMin <- 0
+    #         anguloMax <- 360
+    #     }
+    #     
+    #     # Se ajusta el valor actual si está fuera del rango y se redondea
+    #     anguloActual <- input$angulo
+    #     if (anguloActual < anguloMin || anguloActual > anguloMax) {
+    #         anguloActual <- round((anguloMin + anguloMax) / 2, 2)
+    #     } else {
+    #         anguloActual <- round(anguloActual, 2)
+    #     }
+    #     
+    #     # Se calcula un step basado en el rango, redondeado a dos decimales
+    #     paso <- round((anguloMax - anguloMin) / 100, 2)
+    #     
+    #     updateSliderInput(session, "angulo",
+    #                       min = anguloMin,
+    #                       max = anguloMax,
+    #                       value = anguloActual,
+    #                       step = paso)
+    # })
+    
+    # Ese una opción preferible hacer observeEvent() solo sobre input$radio
+    observeEvent(input$radio, {
+        radioCirculo <- input$radio
+        centro <- c(10, 10)
+        distancia <- sqrt(centro[1]^2 + centro[2]^2)
+
+        if (radioCirculo < distancia) {
+            anguloCentral <- atan2(centro[2], centro[1])
+            phi <- asin(radioCirculo / distancia)
+            anguloMin <- round((anguloCentral - phi) * 180 / pi, 2)
+            anguloMax <- round((anguloCentral + phi) * 180 / pi, 2)
+        } else {
+            anguloMin <- 0
+            anguloMax <- 360
+        }
+
+        anguloActual <- input$angulo
+        if (anguloActual < anguloMin || anguloActual > anguloMax) {
+            anguloActual <- round((anguloMin + anguloMax) / 2, 2)
+        } else {
+            anguloActual <- round(anguloActual, 2)
+        }
+
+        paso <- round((anguloMax - anguloMin) / 100, 2)
+
+        updateSliderInput(
+            session,
+            "angulo",
+            min = anguloMin,
+            max = anguloMax,
+            value = anguloActual,
+            step = paso
+        )
+    })
+    
+    output$plot <- renderPlot({
+        radioCirculo <- input$radio
+        anguloGrados <- input$angulo
+        anguloRadianes <- anguloGrados * pi / 180
+        centro_x <- 10
+        centro_y <- 10
+        
+        # Genera las coordenadas del circulo
+        secuenciaAngulo <- seq(0, 2 * pi, length.out = 300)
+        circulo_x <- centro_x + radioCirculo * cos(secuenciaAngulo)
+        circulo_y <- centro_y + radioCirculo * sin(secuenciaAngulo)
+        
+        # Dibuja el rayo a partir del origen con el angulo especificado
+        longitudLinea <- 100  # Suficiente para que cruce el circulo
+        linea_x <- c(0, longitudLinea * cos(anguloRadianes))
+        linea_y <- c(0, longitudLinea * sin(anguloRadianes))
+        
+        # Configura y dibuja la gráfica
+        plot(NA, xlim = c(-5, 30), ylim = c(-5, 30),
+             xlab = "X", ylab = "Y", asp = 1,
+             main = paste("Radio =", round(radioCirculo, 2),
+                          "| Angulo =", round(anguloGrados, 2), "°"))
+        lines(circulo_x, circulo_y, col = "blue", lwd = 2)
+        lines(linea_x, linea_y, col = "red", lwd = 2)
+        points(centro_x, centro_y, col = "blue", pch = 19)
+        points(0, 0, col = "black", pch = 19)
+        
+        # Calcula los puntos de intersección entre la línea y el circulo
+        A <- 1
+        B <- -2 * (centro_x * cos(anguloRadianes) + centro_y * sin(anguloRadianes))
+        C <- centro_x^2 + centro_y^2 - radioCirculo^2
+        discriminante <- B^2 - 4 * A * C
+        if (discriminante >= 0) {
+            t1_inter <- (-B + sqrt(discriminante)) / 2
+            t2_inter <- (-B - sqrt(discriminante)) / 2
+            tiempos <- sort(c(t1_inter, t2_inter))
+            tiempos <- tiempos[tiempos > 0]
+            if (length(tiempos) > 0) {
+                interseccion_x <- tiempos * cos(anguloRadianes)
+                interseccion_y <- tiempos * sin(anguloRadianes)
+                points(interseccion_x, interseccion_y, col = "darkgreen", pch = 19, cex = 1.5)
+            }
+        }
+    })
+}
+
+shinyApp(ui = ui, server = server)
+
+
+shinyApp(ui = ui, server = server)
+
+
+
+```
+
+
+------------------------------------------------------------------------
+
+### 🎪 Usos Simples: Conveniencia
+
+**1. 🔄 Botón Reset:** Restaura valores iniciales.
+
+```{r update-reset-app, eval=FALSE}
+#| code-line-numbers: "|2-5|9|10-13"
+#| echo: true
+#| RStudio-View: Showcase
+
+ui <- fluidPage(
+  sliderInput("x1", "📝 x1", 0, min = -10, max = 10),
+  sliderInput("x2", "📝 x2", 0, min = -10, max = 10),
+  sliderInput("x3", "📝 x3", 0, min = -10, max = 10),
+  actionButton("reset", "🔄 Reset", 
+               class = "btn-warning")
+)
+
+server <- function(input, output, session) {
+  observeEvent(input$reset, {
+    updateSliderInput(session, inputId = "x1", value = 0)
+    updateSliderInput(session, inputId = "x2", value = 0)
+    updateSliderInput(session, inputId = "x3", value = 0)
+  })
+}
+shinyApp(ui, server)
+
+```
+
+::: notes
+Las funciones `update*Input()` son increíblemente útiles para pequeños detalles que mejoran la experiencia de usuario.
+
+Un uso muy común es crear un **Botón de Reset**. Imaginen que tienen varios controles y el usuario quiere volver a los valores por defecto.
+
+[▶]{style="color: #FF0000;"} En este ejemplo, tenemos tres `sliderInput` con valores iniciales de 0, y un `actionButton` con la etiqueta "Reset" (línea 5).
+
+[▶]{style="color: #FF0000;"} En el servidor, simplemente creamos un `observeEvent` que se dispara cuando el botón "reset" es presionado (línea 9). [▶]{style="color: #FF0000;"} Dentro de este observador, llamamos a `updateSliderInput()` para cada uno de nuestros sliders (`x1`, `x2`, `x3`) y les restablecemos su `value` a 0.
+
+Esto es mucho más limpio que forzar una recarga completa de la aplicación para resetear los valores.
+:::
+
+------------------------------------------------------------------------
+
+###  👉🔘 Usos Simples: Conveniencia (cont.)
+
+**2. 🏷️ Etiqueta de Botón Dinámica:** Informa al usuario qué hará el botón .
+
+```{r update-button-label-app, eval=FALSE}
+#| code-line-numbers: "|7-10"
+#| echo: true
+#| RStudio-View: Showcase
+
+ui <- fluidPage(
+  numericInput("n", "🔢  Simulaciones", 10),
+  actionButton("simular", "▶️  Simular")
+)
+
+server <- function(input, output, session) {
+  observeEvent(input$n, {
+    label <- paste0("🚀  Simular ", input$n, " veces")
+    updateActionButton(session, inputId = "simular", label = label)
+  })
+}
+shinyApp(ui, server)
+```
+
+::: notes
+Otro uso simple pero efectivo es la **Etiqueta de Botón Dinámica**. Esto ayuda a informar al usuario sobre la acción que realizará un botón, haciéndola más específica.
+
+Aquí, tenemos un `numericInput` para el número de simulaciones y un `actionButton` llamado "simular".
+
+En el servidor, [▶]{style="color: #FF0000;"} tenemos un `observeEvent` que reacciona cada vez que el valor de `input$n` (el número de simulaciones) cambia. Dentro de este observador, construimos una nueva etiqueta para el botón, por ejemplo, "Simular 50 veces". Luego, usamos `updateActionButton()` (línea 9) para actualizar la propiedad `label` de nuestro botón "simular".
+
+Esto es un pequeño detalle que mejora la usabilidad, ya que el usuario siempre sabe cuántas simulaciones se ejecutarán al hacer clic en el botón.
+:::
+
+------------------------------------------------------------------------
+
+### Un caso que encuentro seguido... en casa 😁 🍴🍽🥄☢
+
+Contenido sin ordenar
+
+![](img/cajon_desordenado.jpg){width="50%"}
+
+::: notes
+Me reservo la foto real de mi cajón de cubiertos... aunque sería un buen ejemplo de saturación de opciones... o según el día de ausencia total de cubiertos.
+
+Si vemos que en nuestros selectores (nuestros inputs), tenemos una sobreabundancia de opciones, con la primer herramienta podremos permitir al usuario actualizar los inputs y establecer una jerarquía [▶]{style="color: #FF0000;"}
+:::
+
+------------------------------------------------------------------------
+
+### Solución 🧠🧠🧠
+
+Contenido organizado en una jerarquía
+
+![](img/cajones_ordenados.jpg){width="50%"}
+
+------------------------------------------------------------------------
+
+### 🌍 Caso de Uso: Selectores Jerárquicos
+
+::::: columns
+::: {.column width="70%"}
+**Objetivo:🎯** Filtrar opciones paso a paso (ej: Territorio -\> Cliente -\> Orden).
+
+**Datos (datos de ventas):** - Territorio contiene Clientes. - Cliente tiene Órdenes. - Orden tiene Filas.
+
+**UI:** Tres `selectInput` (Cliente y Orden empiezan con `choices = NULL`) y una `tableOutput`.
+:::
+
+::: {.column width="30%"}
+![](img/cascading_selection.jpg)
+:::
+:::::
+
+> **Cliente:** *"Tengo 50,000 órdenes de venta de 20 países, 500 clientes... ¡pero quiero ver UNA orden específica!"*
+
+::: notes
+Pasemos a un caso de uso más avanzado y muy común: los **Selectores Jerárquicos**.
+
+Imaginen que tienen un conjunto de datos grande, como datos de ventas, donde las categorías están anidadas: un Territorio contiene Clientes, un Cliente tiene Órdenes, y cada Orden tiene sus propias filas de detalles.
+
+El objetivo es permitir al usuario filtrar los datos paso a paso. Primero selecciona un Territorio, luego las opciones para el Cliente se actualizan basándose en ese Territorio, luego las Órdenes se actualizan basándose en el Cliente, y finalmente vemos los detalles de la Orden.
+
+En lugar de enfrentar 50,000 opciones, el usuario navega a través de 4 territorios, luego tal vez 10 clientes, luego quizás 5 órdenes (si ese cliente particular no tenía tantas ordenes). ¡Mucho más fácil y directo!
+:::
+
+------------------------------------------------------------------------
+
+### 🧭🌍 Selectores Jerárquicos: UI
+
+```{r hierarchical-ui, eval=FALSE, }
+#| echo: true
+# Sales data no está disponible aquí, solo mostramos UI
+# sales <- vroom::vroom("sales_data_sample.csv", ...) 
+library(shiny)
+
+ui <- fluidPage(
+  selectInput(inputId = "territory",
+              label = "🌍 Territory",
+              choices = c("NA", "EMEA", "APAC", "Japan")),
+  selectInput("customername", "🏢 Customer", choices = NULL),
+  selectInput("ordernumber", "📋 Order number", choices = NULL),
+  tableOutput("data")
+)
+```
+
+::: notes
+En la UI (como se muestra en el código), tenemos tres `selectInput`: uno para el Territorio, otro para el Cliente, y otro para el Número de Orden. Noten que los selectores de Cliente y Orden comienzan con `choices = NULL`, porque sus opciones se rellenarán dinámicamente. Y finalmente, un `tableOutput` para mostrar los datos filtrados.
+
+El archivo de datos de ventas real no estaba disponible en el libro pero hice unos pocos datos sintéticos con una IA. **EJECUTAR UI PRIMERO**
+:::
+
+------------------------------------------------------------------------
+
+###  🧭🌍 Selectores Jerárquicos: Lógica del Servidor
+
+**Cómo:** Se usa una cadena de reactivos y `observeEvent` / `updateSelectInput`.
+
+1.  el reactive `territory()`: Filtra `sales` por `input$territory`.
+2.  `observeEvent(territory(), ...)`: Actualiza `choices` de `input$customername`.
+3.  el reactive `customer()`: Filtra `territory()` por `input$customername`. (Usa `req(input$customername)` para esperar selección).
+4.  `observeEvent(customer(), ...)`: Actualiza `choices` de `input$ordernumber`.
+5.  `renderTable()`: Muestra datos filtrados finales (Usa `req(input$ordernumber)`).
+
+::: notes
+Esto sería el paso a paso para que quede en la presentación... vamos a ver el código y les voy contando.
+:::
+
+------------------------------------------------------------------------
+
+###  🧭🌍 Selectores Jerárquicos: Análisis del Script
+
+```{r hierarchical-server, eval=FALSE}
+#| echo: true
+#| code-line-numbers: "1-39|3-9|9-13|15-19|21-25|27-33"
+# Código conceptual - requiere datos 'sales'
+server <- function(input, output, session) {
+  # 1. 🔄 REACTIVO: Filtra por territorio
+  territory <- reactive({
+    req(input$territory) # Asegura que hay una selección
+    filter(sales, TERRITORY == input$territory)
+  })
+  
+  # 2. 👀 OBSERVADOR: Actualiza clientes basado en territorio
+  observeEvent(territory(), {
+    choices <- unique(territory()$CUSTOMERNAME)
+    updateSelectInput(session, inputId = "customername", choices = choices) 
+  })
+  
+  # 3. 🔄 REACTIVO: Filtra por cliente
+  customer <- reactive({
+    req(input$customername) # Espera selección de cliente
+    filter(territory(), CUSTOMERNAME == input$customername) 
+  })
+  
+  # 4. 👀 OBSERVADOR: Actualiza órdenes basado en cliente
+  observeEvent(customer(), {
+    choices <- unique(customer()$ORDERNUMBER)
+    updateSelectInput(session, inputId = "ordernumber", choices = choices)
+  })
+  
+  # 5. 📊 OUTPUT: Muestra datos de la orden seleccionada
+  output$data <- renderTable({
+    req(input$ordernumber) # Espera selección de orden
+    customer() %>% filter(ORDERNUMBER == input$ordernumber) %>% select(everything())
+  })
+}
+shinyApp(ui, server)
+```
+
+::: notes
+Aquí es donde reside la magia de los selectores jerárquicos. Es una cadena de reactividad:
+
+[▶]{style="color: #FF0000;"}
+
+1.  Primero, tenemos un reactivo llamado `territory` que reacciona a `input$territory`. Este reactivo realiza el filtrado de los datos de ventas para obtener solo registros para los clientes de ese territorio. El `req(input$territory)` asegura que este reactivo solo se ejecute cuando un territorio haya sido seleccionado.
+
+[▶]{style="color: #FF0000;"}
+
+2.  Luego, tenemos un `observeEvent` que escucha los cambios en el reactivo `territory()`. Cuando la lista de clientes del territorio cambia, este observador actualiza las opciones del `selectInput` del cliente (`customername`) usando `updateSelectInput()`.
+
+[▶]{style="color: #FF0000;"}
+
+3.  El patrón se repite: un reactivo `customer` filtra los datos del `territory()` basándose en `input$customername`, y usa `req()` para esperar la selección.
+
+[▶]{style="color: #FF0000;"}
+
+4.  Otro `observeEvent` escucha a `customer()` y actualiza las opciones del `selectInput` de la orden (`ordernumber`).
+
+[▶]{style="color: #FF0000;"}
+
+5.  Finalmente, `renderTable` muestra los datos, asegurándose con require `req()` que haya una orden seleccionada antes de intentar filtrar y mostrar.
+
+Es demostración de cómo los reactivos y observadores se encadenan para crear una experiencia de usuario altamente interactiva y dependiente del contexto. De alguna forma se asemeja a filtrar una planilla en Excel.
+:::
+
+------------------------------------------------------------------------
+
+### 🧊 Congelar Inputs Reactivos (`freezeReactiveValue()`)
+
+::::: columns
+::: {.column width="70%"}
+**Problema:** En jerarquías, cambiar el input superior (ej: `dataset`) puede causar un "parpadeo" o error temporal en los outputs que dependen del input inferior (ej: `column`), porque el inferior aún no se ha actualizado. Temporalmente, `input$column` puede tener un valor inválido para el nuevo `input$dataset`.
+
+**Ejemplo:** Seleccionar Dataset -\> Seleccionar Columna -\> Mostrar Resumen.
+:::
+
+::: {.column width="30%"}
+![](img/summary_null.jpg)
+:::
+:::::
+
+------------------------------------------------------------------------
+
+### 🧊 Congelar Inputs Reactivos - Script:
+
+```{r freeze-problem-app, eval=FALSE}
+#| code-line-numbers: "1-22|2|3|4|2,8,11-14|16-20|19"
+#| echo: true
+#| RStudio-View: Showcase
+
+ui <- fluidPage(
+  selectInput("dataset", "Choose a dataset", c("pressure", "cars")),
+  selectInput("column", "Choose column", character(0)), # Empieza vacío
+  verbatimTextOutput("summary")
+)
+
+server <- function(input, output, session) {
+  dataset <- reactive(get(input$dataset, "package:datasets"))
+  
+  # Actualiza las columnas cuando cambia el dataset
+  observeEvent(input$dataset, {
+    # ¡SIN freezeReactiveValue! - Puede causar parpadeo/error
+    updateSelectInput(session, inputId = "column", choices = names(dataset()))
+  })
+  
+  output$summary <- renderPrint({
+    # Se ejecuta ANTES de que input$column se actualice completamente
+    req(input$column) # <- Evita el error inicial, pero no el parpadeo
+    summary(dataset()[[input$column]]) 
+  })
+}
+shinyApp(ui, server)
+```
+
+> **Resultado:** Parpadeo de error entre cambios 😵‍💫
+
+::: notes
+Analicemos el código.
+
+Imagina este escenario: [▶]{style="color: #FF0000;"}tienes un `selectInput` para elegir un dataset (por ejemplo, "pressure" o "cars"), y [▶]{style="color: #FF0000;"}otro `selectInput` para elegir una columna *de ese dataset*. [▶]{style="color: #FF0000;"}Finalmente, un `verbatimTextOutput` muestra un resumen de la columna seleccionada.
+
+El problema es el siguiente: [▶]{style="color: #FF0000;"}cuando cambias el dataset (por ejemplo, de "pressure" a "cars"), el `observeEvent` se dispara para actualizar las opciones del `selectInput` de la columna. Sin embargo, antes de que esa actualización se complete y la UI se refresque con las nuevas opciones, [▶]{style="color: #FF0000;"}el `output$summary` podría intentar recalcularse.
+
+En ese breve instante, `input$column` todavía tiene el valor de la columna *vieja* (ej: "temperature" de `pressure`), pero `dataset()` ya apunta al *nuevo* dataset (`cars`). [▶]{style="color: #FF0000;"}Intentar hacer `summary(cars[["temperature"]])` causará un error, o un "parpadeo" de `NULL`s, porque "temperature" no existe en el dataset "cars". Si pudiéramos llegar a leerlo veríamos Length 0, Class NULL y Mode NULL. El `req(input$column)` ayuda a evitar un error si `input$column` es `NULL` al inicio, pero no soluciona el parpadeo cuando el valor se vuelve inválido temporalmente.
+:::
+
+------------------------------------------------------------------------
+
+### 🧊 Congelar Inputs Reactivos: ✨ La Solución
+
+**Solución:** `freezeReactiveValue(input, "inputId")`
+
+**Cómo:** Le dice a Shiny que ignore temporalmente cualquier cambio en `input$inputId` hasta que la actualización (`update*Input`) se complete y todo el sistema esté sincronizado de nuevo. Previene que reactivos/outputs usen un valor "obsoleto" mientras la actualización está en curso. Cuando vemos el capítulo 14, en particular "14.4 An input changes", podremos ver cómo lo que está haciendo este congelamiento es impedir la reejecución de todos los reactivos y outputs que dependen de ese input (14.4.4 Re-execution), pero toma nota de cuáles son... porque luego los recalculará. 
+
+::: notes
+Si hiciéramos una lluvia de ideas... ¿qué opciones tenemos para evitar evaluar summary(NULL)?
+
+Una que podría ayudar es:
+-   Envolver tu summary() con req(input\$columna %in% names(data)) para que no se ejecute hasta que la columna exista.
+-   Controlar el orden de reactividad con isolate(), que ya veremos
+
+Otras no tanto:
+-   Si no fuera este caso usaríamos las funciones shiny::validate() o shiny::need() para mostrar un mensaje "Elige primero una columna válida" en lugar de un espacio en blanco. Sería un parpadeo explicado, pero no resolvería el problema de fondo.
+-   Parámetros de prioridad en observeEvent(input$data, priority = 1e10) se ejecutará antes que otro observeEvent(), pero en este caso el problema no es porque haya otro observeEvent() que esté compitiendo.
+:::
+
+------------------------------------------------------------------------
+
+### 🧊 Congelar Inputs Reactivos: script resuelto
+
+```{r freeze-solution-app, eval=FALSE}
+#| code-line-numbers: "|11-14|16-19"
+#| echo: true
+#| RStudio-View: Showcase
+
+# ui es el mismo que antes
+ui <- fluidPage(
+  selectInput("dataset", "📊 Choose a dataset", c("pressure", "cars")),
+  selectInput("column", "📋 Choose column", character(0)),
+  verbatimTextOutput("summary")
+)
+
+server <- function(input, output, session) {
+  dataset <- reactive(get(input$dataset, "package:datasets"))
+  
+  observeEvent(input$dataset, {
+    freezeReactiveValue(input, "column") #  🧊 <--- ¡EVITA INVALIDAR  output$summary !
+    updateSelectInput(session, inputId = "column", choices = names(dataset()))
+  })
+  
+  output$summary <- renderPrint({
+    req(input$column) 
+    summary(dataset()[[input$column]])
+  })
+}
+shinyApp(ui, server)
+```
+
+**Buena práctica:** Usar `freezeReactiveValue` siempre que actualices dinámicamente un valor de input que otros reactivos/outputs usen.
+
+::: notes
+La solución a este problema es la función `freezeReactiveValue()`.
+
+[▶]{style="color: #FF0000;"} Lo que hace `freezeReactiveValue(input, "column")` (línea 12) es decirle a Shiny: "Ojo, sé que el valor de `input$column` va a cambiar pronto, pero mientras hago esta actualización de sus opciones (de hecho hasta que todo el dominio reactivo sea refrescado), por favor, no permitas que ningún otro reactivo o output se dispare si solo está reaccionando a un cambio transitorio o potencialmente inválido en `input$column`."
+
+Esto efectivamente "congela" la reactividad del input `column` hasta que `updateSelectInput` termina su trabajo y `input$column` se establece a su nuevo valor (generalmente la primera opción de la lista). [▶]{style="color: #FF0000;"} Así, el `output$summary` no intentará calcularse con un `input$column` obsoleto o inválido. Es una buena práctica usar `freezeReactiveValue` siempre que actualizamos dinámicamente un input que sea una dependencia de otros reactivos u outputs (o sea, depende de que algo más cambie). Evita errores y mejora la experiencia de usuario eliminando esos "parpadeos".
+:::
+
+------------------------------------------------------------------------
+
+### 🧊 Congelar Inputs Reactivos: Ejemplo de la Help Documentation: ?freezeReactiveValue
+
+```{r}
+#| eval: false
+library(shiny)
+ui <- fluidPage(
+  selectInput("data", "Data Set", c("mtcars", "pressure")),
+  checkboxGroupInput("cols", "Columns (select 2)", character(0)),
+  plotOutput("plot")
+)
+
+server <- function(input, output, session) {
+  observe({
+    data <- get(input$data)
+    # Sets a flag on input$cols to essentially do req(FALSE) if input$cols
+    # is accessed. Without this, an error will momentarily show whenever a
+    # new data set is selected.
+    freezeReactiveValue(input, "cols")
+    updateCheckboxGroupInput(session, "cols", choices = names(data))
+  })
+
+  output$plot <- renderPlot({
+    # When a new data set is selected, input$cols will have been invalidated
+    # above, and this will essentially do the same as req(FALSE), causing
+    # this observer to stop and raise a silent exception.
+    cols <- input$cols
+    data <- get(input$data)
+
+    if (length(cols) == 2) {
+      plot(data[[ cols[1] ]], data[[ cols[2] ]])
+    }
+  })
+}
+
+shinyApp(ui, server)
+```
+
+::: notes
+No vamos a ver este ejemplo al detalle, pero es interesante comentar la línea de freezeReactiveValue (en la línea 14 si incluimos los comentarios en el conteo de líneas) para ver cómo es el error que se está resolviendo con esta función, así cuando lo veamos en el futuro asociemos este tipo de error a esta solución. Spoiler: da una cadena de error de shoy resaltando 178: renderPlot \[#19\]
+:::
+
+------------------------------------------------------------------------
+
+### 🌪 Referencias Circulares
+
+**¡Peligro!** Usar `update*Input` para cambiar el `value` de un input puede crear bucles infinitos si ese mismo input *dispara* la actualización.
+
+**Ejemplo Trivial (¡No hacer!):**
+
+```{r circular-bad-app, eval=FALSE}
+#| echo: true
+#| RStudio-View: Showcase
+
+ui <- fluidPage(
+  numericInput("n", "n", 0)
+)
+server <- function(input, output, session) {
+  observeEvent(input$n, {
+    # # 💥 ¡BUCLE INFINITO! Cambiar input$n dispara este mismo observeEvent
+    updateNumericInput(session, inputId = "n", value = input$n + 1) 
+  })
+}
+
+# 🧚‍♀️ NUNCA ejecutar esto... 
+
+# 😈 Nah... podemos probar, localmente no es grave
+
+shinyApp(ui, server) #<- 🚨  
+```
+
+
+
+
+::: notes
+Así como la UI dinámica es poderosa, también viene con advertencias importantes. Una de las más críticas es el riesgo de **referencias circulares** o bucles infinitos.
+
+Esto ocurre cuando un `observeEvent` reacciona a un input, y la acción dentro de ese `observeEvent` es *actualizar el valor de ese mismo input*.
+
+Aquí tienen un ejemplo trivial, pero que ilustra el problema perfectamente. Tenemos un `numericInput` llamado `n`. En el servidor, hay un `observeEvent` que escucha a `input$n`. Cuando `input$n` cambia, este observador se activa. Y lo que hace dentro es llamar a `updateNumericInput()` para incrementar el valor de `n` en 1.
+
+¿Qué pasa entonces? `updateNumericInput` cambia `input$n`. Un cambio en `input$n` **vuelve a disparar** el mismo `observeEvent`. Este a su vez vuelve a incrementar `input$n`, lo que lo vuelve a disparar, y así hasta el infinito. La aplicación se bloquea, consume toda la CPU y la memoria. ¡No podemos ni intentar ejecutar esto!
+:::
+
+------------------------------------------------------------------------
+
+### 💀 Lo que Pasa:
+
+1.  `input$n` cambia → `observeEvent` se dispara
+2.  `updateNumericInput` cambia `input$n`
+3.  `input$n` cambió → `observeEvent` se dispara
+4.  `updateNumericInput` cambia `input$n`
+5.  **¡HASTA EL INFINITO!** 🔄💥
+
+::: notes
+Es crucial ser consciente de cómo sus reactivos se conectan entre sí para evitar este tipo de bucles. No se nos va a pasar en un un loop de un solo elemenento... pero es posible con más.
+:::
+
+------------------------------------------------------------------------
+
+### 🔗🧩 Inputs Interrelacionados {.smaller}
+
+**Problema:** Múltiples inputs representan la misma "verdad" subyacente (ej: Temperatura en °C y °F). Actualizar uno basado en el otro puede llevar a reptir los ciclos.
+
+```{r temperature-app, eval=FALSE}
+#| code-line-numbers: "|8-13|15-20"
+#| echo: true
+#| RStudio-View: Showcase
+
+ui <- fluidPage(
+  numericInput("temp_c", "Celsius", NA, step = 1),
+  numericInput("temp_f", "Fahrenheit", NA, step = 1)
+)
+
+server <- function(input, output, session) {
+  
+  # 🔄 F → C  Actualiza Celsius si Fahrenheit cambia
+  observeEvent(input$temp_f, {
+    # req(input$temp_f) # Buena idea añadir req()
+    c <- round((input$temp_f - 32) * 5 / 9)
+    updateNumericInput(session, inputId = "temp_c", value = c)
+  })
+  
+  # 🔄 C → F : Actualiza Fahrenheit si Celsius cambia
+  observeEvent(input$temp_c, {
+    # req(input$temp_c) # Buena idea añadir req()
+    f <- round((input$temp_c * 9 / 5) + 32)
+    updateNumericInput(session, inputId = "temp_f", value = f)
+  })
+}
+shinyApp(ui, server)
+```
+
+::: notes
+Relacionado con las referencias circulares, pero con un matiz diferente, tenemos el caso de **inputs interrelacionados**.
+
+Aquí, dos o más inputs representan la misma información subyacente, pero en diferentes formatos. El ejemplo clásico es la conversión entre Celsius y Fahrenheit. Si el usuario introduce un valor en Celsius, queremos que el Fahrenheit se actualice automáticamente, y viceversa.
+
+En este código, tenemos dos `numericInput`: `temp_c` y `temp_f`. Tenemos un `observeEvent` (líneas 9-13) que actualiza `temp_c` cuando `temp_f` cambia. Y otro `observeEvent` (líneas 16-19) que actualiza `temp_f` cuando `temp_c` cambia.
+
+A primera vista, esto parece un bucle infinito, ¿verdad? Y lo sería si no fuera por las reglas de reactividad de Shiny. Shiny es lo suficientemente inteligente como para detectar que un valor ha sido programáticamente actualizado y a veces "suprime" disparadores reactivos si el valor no ha cambiado realmente o si se alcanza un estado de equilibrio.
+
+Sin embargo, el comportamiento puede ser impredecible, a veces causando "rebotes" (ej: F=120 -\> C=48.8 -\> F=119.9). Dependiendo de los redondeos o de las operaciones, podrías ver cómo los valores "rebotan" entre sí un par de veces antes de estabilizarse, o incluso generar ciclos si no hay convergencia.
+
+La regla de oro para evitar estos problemas es simple: siempre que escriban un `updateInput`, pregúntense: "¿Este cambio puede disparar el mismo observeEvent que lo está causando?" Si la respuesta es sí, probablemente necesiten repensar su arquitectura.
+:::
+
+------------------------------------------------------------------------
+
+### 🔗🧩 Rebote de valores (en realidad se saltea un impar)
+
+**Resultado:** Valores "rebotando" hasta estabilizarse (¡si es que lo hacen!) 🏓 " (ej: F=120 -\> F=119 -\> C=48 -\> F=118) hasta que se alcanza un equilibrio (si lo hay). **Recomendación:** Evitar si es posible, o analizar cuidadosamente la convergencia.
+
+![](img/rebote_valores_120.jpg){width="30%"} ![](img/rebote_valores_118.jpg){width="30%"}
+
+::: {.fragment .fade-in}
+### 🛡️ **Defensa:** Siempre pregúntate: "¿Este update puede disparar el mismo observeEvent?"
+:::
+
+::: notes
+
+Sin embargo, el comportamiento puede ser impredecible, a veces causando "rebotes" (ej: F=120 -\> C=48.8 -\> F=119.9). Dependiendo de los redondeos o de las operaciones, podrías ver cómo los valores "rebotan" entre sí un par de veces antes de estabilizarse, o incluso generar ciclos si no hay convergencia.
+
+La regla de oro para evitar estos problemas es simple: siempre que escriban un `updateInput`, pregúntense: "¿Este cambio puede disparar el mismo observeEvent que lo está causando?" Si la respuesta es sí, probablemente necesiten repensar su arquitectura.
+
+:::
+
+------------------------------------------------------------------------
+
+### 👩‍💻/👨‍💻 Ejercicios (Sección 10.1)
+
+10.1.6.1.  **Fechas por Año:** `numericInput("year")`, `dateInput("date")`. Actualiza `min` y `max` de `input$date` basado en `input$year`.
+
+```{r, eval=FALSE}
+# 10.1.6 Exercises (1)
+# Complete the user interface below with a server function that updates input$date
+# so that you can only select dates in input$year.
+
+# código de la propuesta:
+library(shiny)
+
+ui <- fluidPage(
+    numericInput("year", "year", value = 2020),
+    dateInput("date", "date")
+)
+
+# completar con código debajo:
+server <- function(input, output, server){
+    observeEvent(
+        input$year,
+        updateDateInput(
+            inputId = "date",
+            # min = lubridate::make_date(input$year,1,1),
+            min = as.Date(paste(input$year, "01", "01", sep = "-")),
+            # max = lubridate::make_date(input$year,12,31),
+            max = as.Date(paste(input$year, "12", "31", sep = "-")),
+            value = lubridate::make_date(input$year,1,1)
+        )
+    )
+}
+
+shinyApp(ui, server)
+```
+
+::: notes
+
+Usamos observeEvent(input$year, {updateDateInput()}) para actualizar el rango (mínimo y máximo) y el value (el valor inicial que nos muestra)
+
+:::
+
+
+------------------------------------------------------------------------
+
+10.1.6.2.  **Estado/Condado:** `selectInput("state")`, `selectInput("county", choices = NULL)`. Actualiza `choices` y `label` de `input$county` basado en `input$state` (usando `openintro::county`).
+
+```{r, eval=FALSE}
+# 10.1.6 Exercises (2) con condiciones
+
+# Complete the user interface below with a server function that updates 
+# input$county choices based on input$state. For an added challenge, also change 
+# the label from "County" to "Parish" for Louisiana and "Borough" for Alaska.
+
+# agrego porque no es un paquete que crea usual
+if(!require(openintro, quietly = TRUE)){install.packages("openintro");library(openintro, warn.conflicts = FALSE)}
+
+library(openintro, warn.conflicts = FALSE)
+#> Loading required package: airports
+#> Loading required package: cherryblossom
+#> Loading required package: usdata
+#> Registered S3 methods overwritten by 'readr':
+#>   method                    from 
+#>   as.data.frame.spec_tbl_df vroom
+#>   as_tibble.spec_tbl_df     vroom
+#>   format.col_spec           vroom
+#>   print.col_spec            vroom
+#>   print.collector           vroom
+#>   print.date_names          vroom
+#>   print.locale              vroom
+#>   str.col_spec              vroom
+
+library(shiny)
+
+states <- unique(county$state)
+
+ui <- fluidPage(
+    selectInput("state", "State", choices = states),
+    selectInput("county", "County", choices = NULL)
+)
+
+server <- function(input,output, server){
+    counties <- reactive({
+        unique(county[,c("state","name") ]) %>%
+            filter(state %in% input$state) %>% 
+            pull(name)
+    })
+    
+    observeEvent(input$state,{
+        if(input$state == "Louisiana"){
+            updateSelectInput(
+                session= getDefaultReactiveDomain(),
+                inputId = "county",
+                label = "Parish",
+                choices = counties())
+        }else if(input$state == "Alaska"){
+            updateSelectInput(
+                session= getDefaultReactiveDomain(),
+                inputId = "county",
+                label = "Borough",
+                choices = counties())
+        }else{
+            # Other states
+            updateSelectInput(
+                session= getDefaultReactiveDomain(),
+                inputId = "county",
+                # (!!!) 
+                # Hay que recordar volver a "County" después de visitar Alaska
+                # y Louisiana
+                label = "County",
+                choices = counties())    
+        }
+    })
+}
+
+shinyApp(ui, server)
+
+# versión más elegante:
+server <- function(input, output, session) {
+    # Actualizar las opciones de "county" según el "state" seleccionado
+    observeEvent(input$state, {
+        # Filtrar los condados asociados al estado seleccionado
+        counties <- unique(county[county$state == input$state, "name"])
+        
+        # 👩‍🎓 Cambiar dinámicamente la etiqueta según el estado
+        label <- switch(input$state,
+                        "Louisiana" = "Parish",
+                        "Alaska" = "Borough",
+                        "County")
+        
+        # Actualizar las opciones y etiqueta del selectInput para "county"
+        updateSelectInput(session, inputId = "county",
+                          label = label,
+                          choices = counties)
+    })
+}
+
+```
+
+:::notes
+
+Más abajo uso un switch, que tomando una clave de tipo numérico o character
+devuelve el valor asociado a esa clave.
+
+:::
+
+
+------------------------------------------------------------------------
+
+10.1.6.3.  **Continente/País:** `selectInput("continent")`, `selectInput("country", choices = NULL)`. Actualiza `choices` de `input$country` basado en `input$continent` (usando `gapminder::gapminder`).
+
+```{r, eval=FALSE}
+# 10.1.6 Exercises (3)
+
+# Complete the user interface below with a server function that 
+# updates input$country choices based on the input$continent. 
+# Use output$data to display all matching rows.
+
+library(shiny)
+library(gapminder)
+continents <- unique(gapminder$continent)
+
+ui <- fluidPage(
+    selectInput("continent", "Continent", choices = continents), 
+    selectInput("country", "Country", choices = NULL),           
+    tableOutput("data")
+)
+
+server <- function(input, output, server){
+    
+    choices <- reactive({
+        # es igual que gapminder %>% filter(continent == input$continent) %>% distinct(country)
+        unique(gapminder[gapminder$continent==input$continent,"country"])
+    })
+        
+    observeEvent(input$continent, {
+        updateSelectInput(
+            session = getDefaultReactiveDomain(),# valor por defecto
+            inputId = "country",
+            choices = choices()
+        )
+    })
+    
+    output$data <- renderTable(
+        # tabla filtrada, todas las columnas
+        gapminder[gapminder$country==input$country,]
+    )
+}
+shinyApp(ui, server)
+
+
+```
+
+:::notes
+
+El ejercicio nos da el UI y hacemos server(). Primero hacemos el reactive choices()
+con los países del continente que traemos del objeto input.
+Luego ante cambios en input$continent actualizamos el selectInput("country") con 
+ese mismo reactive.
+El output$data recibe la tabla filtrada (sea con un vector lógico y subsetting de base o con dplyr)
+
+:::
+
+
+------------------------------------------------------------------------
+
+10.1.6.4.  **Extensión:** Añadir "(Todos)" a continentes/países.
+
+
+```{r, eval=FALSE}
+# 10.1.6 Exercises (4)
+
+# Extend the previous app so that you can also choose to select all continents, 
+# and hence see all countries. You’ll need to add "(All)" to the list of choices, 
+# and then handle that specially when filtering.
+
+library(shiny)
+library(gapminder)
+
+# Agrego "(All)" y tuve que forzar a que tomara los valores...
+# también podría haber usado unique(as.character(gapminder$continent))
+continents <- c("(All)", levels(gapminder$continent))
+
+ui <- fluidPage(
+    selectInput("continent", "Continent", choices = continents),
+    selectInput("country", "Country", choices = NULL),
+    tableOutput("data")
+)
+
+server <- function(input, output, server){
+    
+    choices <- reactive({
+        if(input$continent == "(All)"){
+            unique(gapminder$country)
+        }else{
+            unique(gapminder[gapminder$continent==input$continent,"country"])
+        }
+    })
+    
+    observeEvent(input$continent,
+                 {
+                     updateSelectInput(
+                         session = getDefaultReactiveDomain(),
+                         inputId = "country",
+                         choices = choices()
+                     )
+                 })
+    output$data <- renderTable(
+        gapminder[gapminder$country==input$country,]
+    )
+}
+shinyApp(ui, server)
+
+```
+
+:::notes
+
+Agregamos la opción ALL al vector continents y una estructura if-else donde 
+en la llamada a unique() no excluímos ningún país.
+
+:::
+
+
+------------------------------------------------------------------------
+
+10.1.6.5.  **Debug:** Analizar el problema en el link de RStudio Community (requiere acceso externo).
+
+El problema central descrito en el enlace mencionado (https://community.rstudio.com/t/29307) 
+se relaciona con la gestión de referencias circulares en aplicaciones Shiny. 
+Según el contenido del libro, este tipo de problema surge cuando se utilizan funciones de
+actualización (updateNumericInput, por ejemplo) para modificar valores de
+entrada que, a su vez, desencadenan eventos reactivos que vuelven a modificar
+el mismo valor. Esto puede generar bucles infinitos y comportamientos
+inesperados en la aplicación.
+
+Hadley explica que, desde la perspectiva de Shiny, las actualizaciones
+programáticas de un valor son tratadas de la misma manera que las
+modificaciones realizadas por el usuario. Esto significa que cualquier cambio
+en un valor de entrada puede activar observadores reactivos, lo que puede
+llevar a ciclos de actualización interminables si no se manejan adecuadamente
+las dependencias entre los controles.
+
+Para evitar estos problemas, se recomienda utilizar herramientas como
+isolate() para romper la dependencia reactiva o implementar lógica condicional
+que limite las actualizaciones.
+
+```{r}
+library(shiny)
+ui <- shinyUI(fluidPage(
+  titlePanel("Mutually Dependent Input Values"),
+  sidebarLayout(
+    sidebarPanel(
+      numericInput("A", "A",.333),
+      numericInput("B", "B",.333),
+      numericInput("C", "C",.333)
+    ),
+    mainPanel(
+      verbatimTextOutput("result")
+    )
+  )
+)) 
+
+server <- shinyServer(function(input, output,session) {
+
+    
+    observeEvent(input$A, {
+        newB <- isolate(1 - input$A - input$C)
+        updateNumericInput(session, "B", value = newB)
+        newC <- 1 - isolate(input$A - input$B)
+        updateNumericInput(session, "C", value = newC)
+    })
+    observeEvent(input$B, {
+        newC <- 1 - input$B - input$A
+        updateNumericInput(session, "C", value = newC)
+        newA <- 1 - input$B - input$C
+        updateNumericInput(session, "A", value = newA)
+    })
+    observeEvent(input$C, {
+        newA <- 1 - input$C - input$B
+        updateNumericInput(session, "A", value = newA)
+        newB <- 1 - input$C - input$C
+        updateNumericInput(session, "B", value = newB)
+    })
+    
+})
+shinyApp(ui,server)
+
+```
+
+
+------------------------------------------------------------------------
+
+## 🃏 Siguiente caso... no siempre queremos mostrar todo ☢
+
+![](img/vasos_transparentes.jpg){width="50%"}
+
+:::notes
+No es realmente análogo... pero bueno... vamos a controlar la visibilidad de nuestros contenedores.
+:::
+
+------------------------------------------------------------------------
+
+## 2. 👻 Visibilidad Dinámica 🔄 (`tabsetPanel` oculto)
+
+**🎯 Objetivo:** Mostrar/ocultar partes de la UI sin recrearlas.
+
+**⚙️ Técnica (Hack):**
+
+1.  Usar `tabsetPanel(id = "switcher", type = "hidden", ...)` para contener diferentes secciones de UI en `tabPanelBody()` o `tabPanel()`.
+
+2.  Usar `updateTabsetPanel(inputId = "switcher", selected = "panel_id")` desde el servidor para cambiar qué panel está visible.
+
+> 💡 **Concepto clave:** Separación entre estructura y presentación - los elementos existen en DOM pero se controla su visibilidad
+
+:::notes
+Pasemos a la segunda técnica para la UI dinámica: la **Visibilidad Dinámica**, que se logra de una manera un poco ingeniosa con `tabsetPanel()`.
+
+El objetivo aquí es simplemente mostrar u ocultar grandes bloques de UI de forma condicional. No se trata de cambiar propiedades de un input existente, sino de hacer aparecer o desaparecer secciones enteras.
+
+La "técnica" o "hack" es la siguiente: 1. Creamos un `tabsetPanel`. Normalmente, un `tabsetPanel` muestra pestañas en la parte superior para que el usuario pueda hacer clic y cambiar de panel. Pero si le pasamos el argumento `type = "hidden"`, esas pestañas desaparecen. El `tabsetPanel` actúa entonces como un contenedor invisible para diferentes paneles (`tabPanelBody` o `tabPanel`).
+
+2.  Desde el servidor, usamos `updateTabsetPanel()` para decirle al `tabsetPanel` cuál de sus paneles internos (`selected = "panel_id"`) debe mostrarse. Los otros paneles, aunque presentes en el HTML, estarán ocultos.
+
+Esto es muy eficiente porque los paneles no se recrean cada vez que cambian; simplemente se conmutan su visibilidad.
+:::
+
+------------------------------------------------------------------------
+
+### 🗂 🔽 📑 Ejemplo Básico: Cambiador de Paneles
+
+```{r dynamic-visibility-basic-app, eval=FALSE}
+#| code-line-numbers: "|9|10-13|18-22"
+#| echo: true
+#| RStudio-View: Showcase
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("controller", "Show", choices = paste0("panel", 1:3))
+    ),
+    mainPanel(
+      tabsetPanel(
+        id = "switcher",  # ID para referenciarlo
+        type = "hidden",  # ¡Oculta las pestañas!
+        tabPanelBody("panel1", "Panel 1 content"),
+        tabPanelBody("panel2", "Panel 2 content"),
+        tabPanelBody("panel3", "Panel 3 content")
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  observeEvent(input$controller, {
+    updateTabsetPanel(session, inputId = "switcher", selected = input$controller)
+  })
+}
+shinyApp(ui, server)
+```
+
+> 📊 **Ventaja técnica:** Transiciones instantáneas sin overhead (costo computacional) de renderizado (de generar y dibujar los elementos en la pantalla) al cambiar de tabPanelBody()
+
+::: notes
+Veamos un ejemplo sencillo de cómo funciona este "cambiador de paneles" oculto.
+
+En la UI, tenemos un `sidebarLayout`. En el `sidebarPanel`, un `selectInput` llamado "controller" con opciones "panel1", "panel2", "panel3". Este será nuestro control para cambiar el contenido.
+
+En el `mainPanel`, definimos nuestro `tabsetPanel` (línea 9). Le damos un `id` ("switcher") para poder referenciarlo desde el servidor, y lo más importante, le pasamos `type = "hidden"` (línea 10) para que no muestre las pestañas. Dentro, definimos tres `tabPanelBody` (o `tabPanel`) con IDs "panel1", "panel2", "panel3" y algo de contenido.
+
+En el servidor (línea 19), tenemos un `observeEvent` que reacciona a los cambios en `input$controller`. Cuando el usuario selecciona una opción, llamamos a `updateTabsetPanel()`. Le pasamos el `session`, el `inputId` de nuestro `tabsetPanel` oculto (que es "switcher"), y el `selected` panel debe ser el valor actual de `input$controller`.
+
+Si ejecutan esta aplicación, verán que al cambiar la opción en el selector, el contenido del panel principal cambia instantáneamente, sin que aparezcan las pestañas. Es una forma muy limpia de hacer condicional una parte de la UI.
+:::
+
+------------------------------------------------------------------------
+
+###  📝 Caso de Uso: UI Condicional (Parámetros de una distribución)
+
+**📋 Objetivo:** Mostrar diferentes controles de parámetros según la distribución seleccionada (Normal, Uniforme, Exponencial).
+
+**🔧 Implementación:** - Cada conjunto de parámetros en un `tabPanel` dentro de un `tabsetPanel` oculto. - El `selectInput("dist")` controla qué `tabPanel` se muestra vía `updateTabsetPanel`.
+
+![](img/caso_de_uso_ui_condicional.jpg){width="50%"}
+
+::: notes
+Un caso de uso clásico para la visibilidad dinámica es la **UI Condicional** donde los controles de entrada cambian según una elección previa. Aquí, queremos mostrar diferentes parámetros de distribución (media/desviación estándar para Normal, min/max para Uniforme, tasa para Exponencial) basándose en la distribución seleccionada por el usuario.
+:::
+
+------------------------------------------------------------------------
+
+###  📝 Caso de Uso: UI Condicional (Parámetros de una distribución)
+
+```{r conditional-ui-app, eval=FALSE}
+#| echo: true
+#| RStudio-View: Showcase
+#| code-line-numbers: "1-58|2-4|4,5,9,13|4,5,6,7,9,10,11,13,14|21-25|35-39|41-50|52-56"
+
+# UI para los parámetros específicos
+parameter_tabs <- tabsetPanel(
+  id = "params", # ID para controlar desde el server
+  type = "hidden", # Oculto
+  tabPanel("normal",
+           numericInput("mean", "mean", value = 1),
+           numericInput("sd", "standard deviation", min = 0, value = 1)
+  ),
+  tabPanel("uniform",
+           numericInput("min", "min", value = 0),
+           numericInput("max", "max", value = 1)
+  ),
+  tabPanel("exponential",
+           numericInput("rate", "rate", value = 1, min = 0),
+  )
+)
+
+# UI completa
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("dist", "Distribution",
+                  choices = c("normal", "uniform", "exponential") # Coinciden con nombres de tabPanel
+      ),
+      numericInput("n", "Number of samples", value = 100),
+      parameter_tabs # Incrusta el tabset oculto
+    ),
+    mainPanel(
+      plotOutput("hist")
+    )
+  )
+)
+
+# Server
+server <- function(input, output, session) {
+  # Cambia el panel de parámetros visible cuando cambia la distribución
+  observeEvent(input$dist, {
+    updateTabsetPanel(session, inputId = "params", selected = input$dist)
+  })
+  
+  # Genera la muestra basada en la distribución y parámetros seleccionados
+  sample <- reactive({
+    # ¡Importante! Los inputs (ej: input$mean) existen aunque no sean visibles
+    req(input$dist) # Asegura que hay una selección
+    switch(input$dist,
+           normal = rnorm(input$n, input$mean, input$sd),
+           uniform = runif(input$n, input$min, input$max),
+           exponential = rexp(input$n, input$rate)
+    )
+  })
+  
+  # Dibuja el histograma
+  output$hist <- renderPlot({
+    hist(sample())
+  }, res = 96)
+}
+
+shinyApp(ui, server)
+```
+
+::: notes
+[▶]{style="color: #FF0000;"} Primero, definimos un `tabsetPanel` oculto (`id = "params", type = "hidden"`) [▶]{style="color: #FF0000;"} que contiene tres `tabPanel` (uno para cada distribución), y cada `tabPanel` contiene [▶]{style="color: #FF0000;"}los `numericInput` específicos para esa distribución. Es importante que los IDs de los `tabPanel` (ej: "normal", "uniform", "exponential") coincidan con los `choices` de nuestro `selectInput` principal.
+
+Luego, en nuestra UI principal, [▶]{style="color: #FF0000;"} simplemente incluimos este `parameter_tabs` oculto. [▶]{style="color: #FF0000;"} Tenemos un `selectInput` para elegir la distribución (`input$dist`), y un `numericInput` para el número de muestras.
+
+En el servidor, [▶]{style="color: #FF0000;"} un `observeEvent` reacciona a los cambios en `input$dist`. Este observador llama a `updateTabsetPanel()` para nuestro `tabsetPanel` oculto (`params`), estableciendo el panel `selected` al nombre de la distribución elegida.
+
+Un punto *muy importante* aquí es que, aunque los inputs de los paneles ocultos no sean visibles, *sus valores siguen existiendo* en `input$mean`, `input$sd`, etc. Esto significa que podemos acceder a ellos en nuestro reactivo `sample()` sin problemas. [▶]{style="color: #FF0000;"} El `switch` statement es perfecto aquí para generar la muestra correcta basada en la distribución y sus parámetros.
+
+Finalmente, el `renderPlot` simplemente visualiza el histograma de la muestra generada. Este es un patrón muy común para UIs condicionales.
+:::
+
+------------------------------------------------------------------------
+
+###  📝 Caso de Uso: Interfaz de Asistente (Wizard 🧙)
+
+**🎯 Objetivo:** Guiar al usuario a través de un proceso multi-paso.
+
+**Cómo 🤔:**
+
+-   Cada paso es un `tabPanel` dentro de un `tabsetPanel` oculto.
+-   Botones "Anterior"/"Siguiente" (`actionButton`) en cada panel. 
+-   `observeEvent` en los botones llaman a `updateTabsetPanel` para cambiar de página (`selected = "page_i"`).
+
+```{r wizard-app, eval=FALSE}
+#| echo: true
+#| RStudio-View: Showcase
+#| code-line-numbers: "false"
+
+ui <- fluidPage(
+  tabsetPanel(
+    id = "wizard", # ID del tabset
+    type = "hidden", # Oculto
+    tabPanel("page_1", # Valor para 'selected'
+             "Welcome!",
+             actionButton("page_12", "next") # Botón para ir a página 2
+    ),
+    tabPanel("page_2", 
+             "Only one page to go",
+             actionButton("page_21", "prev"), # Botón para ir a página 1
+             actionButton("page_23", "next")  # Botón para ir a página 3
+    ),
+    tabPanel("page_3",
+             "You're done!",
+             actionButton("page_32", "prev") # Botón para ir a página 2
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # Función helper para cambiar de página
+  switch_page <- function(i) {
+    updateTabsetPanel(session, inputId = "wizard", selected = paste0("page_", i))
+  }
+  
+  # Observadores para cada botón
+  observeEvent(input$page_12, switch_page(2))
+  observeEvent(input$page_21, switch_page(1))
+  observeEvent(input$page_23, switch_page(3))
+  observeEvent(input$page_32, switch_page(2))
+}
+
+shinyApp(ui, server)
+```
+
+::: notes
+Un último caso de uso muy común para los `tabsetPanel` ocultos es la creación de interfaces de **Asistente** o "Wizard".
+
+El objetivo es guiar al usuario a través de un proceso que tiene múltiples pasos, donde cada paso es una "página" y el usuario navega secuencialmente con botones "Siguiente" y "Anterior".
+
+La estructura es muy similar a la anterior: Tenemos un `tabsetPanel` con `id = "wizard"` y `type = "hidden"`. Dentro, cada paso del asistente es un `tabPanel` con un `id` único (ej: "page_1", "page_2", "page_3").
+
+Dentro de cada `tabPanel`, en lugar de controles de entrada condicionales, colocamos `actionButton`s para la navegación. Por ejemplo, en "page_1" tenemos un botón `page_12` para ir a la página 2. En "page_2", tenemos botones `page_21` y `page_23` para ir a la página 1 y 3 respectivamente.
+
+En el servidor, definimos una función `switch_page()` de ayuda que toma un número de página y llama a `updateTabsetPanel()` para nuestro `wizard` para seleccionar la página correspondiente. Luego, simplemente creamos un `observeEvent` para cada botón de navegación, llamando a `switch_page()` con el número de la página a la que queremos ir.
+
+Esto crea una experiencia de usuario fluida y guiada, ideal para flujos de trabajo complejos o para recopilar información paso a paso.
+:::
+
+------------------------------------------------------------------------
+
+###  📝 Caso de Uso: Interfaz de Flujo Secuencial
+
+**📈 Contexto:** Proceso de análisis de datos con validación por etapas **🔄 Implementación:** Navegación controlada con validación progresiva
+
+> 🔒 **Patrón avanzado:** Validación progresiva con `reactiveValues` para gestión de estado complejo
+
+```{r wizard-app-2, eval=FALSE}
+#| echo: true
+#| RStudio-View: Showcase
+#| code-line-numbers: "false"
+
+ui <- fluidPage(
+  titlePanel("Asistente de Análisis de Datos"),
+  
+  tabsetPanel(
+    id = "wizard",
+    type = "hidden",
+    
+    # Etapa 1: Carga de datos
+    tabPanel("step_1",
+             fluidRow(
+               column(12,
+                      h3("📁 Paso 1: Carga de Datos"),
+                      fileInput("file", "Seleccionar archivo CSV",
+                               accept = c(".csv")),
+                      conditionalPanel(
+                        condition = "output.file_uploaded",
+                        h4("Vista previa:"),
+                        DT::dataTableOutput("preview")
+                      ),
+                      br(),
+                      div(style = "text-align: right;",
+                          actionButton("step1_next", "Continuar →", 
+                                     class = "btn-primary"))
+               )
+             )
+    ),
+    
+    # Etapa 2: Configuración de análisis
+    tabPanel("step_2",
+             fluidRow(
+               column(12,
+                      h3("⚙️ Paso 2: Configuración del Análisis"),
+                      selectInput("response_var", "Variable dependiente:", 
+                                choices = NULL),
+                      checkboxGroupInput("predictor_vars", "Variables predictoras:",
+                                       choices = NULL),
+                      radioButtons("analysis_type", "Tipo de análisis:",
+                                 choices = c("Regresión lineal" = "lm",
+                                           "Regresión logística" = "glm",
+                                           "Análisis de varianza" = "aov")),
+                      br(),
+                      div(style = "text-align: right;",
+                          actionButton("step2_prev", "← Anterior", 
+                                     class = "btn-secondary"),
+                          actionButton("step2_next", "Continuar →", 
+                                     class = "btn-primary"))
+               )
+             )
+    ),
+    
+    # Etapa 3: Resultados
+    tabPanel("step_3",
+             fluidRow(
+               column(12,
+                      h3("📊 Paso 3: Resultados del Análisis"),
+                      verbatimTextOutput("analysis_results"),
+                      plotOutput("analysis_plot"),
+                      br(),
+                      div(style = "text-align: right;",
+                          actionButton("step3_prev", "← Anterior", 
+                                     class = "btn-secondary"),
+                          downloadButton("download_report", "Descargar Reporte",
+                                       class = "btn-success"))
+               )
+             )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # Almacenamiento reactivo de datos
+  values <- reactiveValues(
+    data = NULL,
+    current_step = 1
+  )
+  
+  # Control de navegación con validación
+  navigate_to_step <- function(step) {
+    updateTabsetPanel(session, inputId = "wizard", selected = paste0("step_", step))
+    values$current_step <- step
+  }
+  
+  # Validaciones por etapa
+  validate_step1 <- reactive({
+    !is.null(values$data) && nrow(values$data) > 0
+  })
+  
+  validate_step2 <- reactive({
+    !is.null(input$response_var) && 
+    !is.null(input$predictor_vars) && 
+    length(input$predictor_vars) > 0
+  })
+  
+  # Carga y procesamiento de datos
+  observeEvent(input$file, {
+    req(input$file)
+    values$data <- read.csv(input$file$datapath)
+    
+    # Actualizar opciones de variables
+    updateSelectInput(session, "response_var", 
+                     choices = names(values$data))
+    updateCheckboxGroupInput(session, "predictor_vars", 
+                           choices = names(values$data))
+  })
+  
+  # Navegación entre pasos
+  observeEvent(input$step1_next, {
+    if (validate_step1()) {
+      navigate_to_step(2)
+    } else {
+      showNotification("Por favor, cargue un archivo válido", type = "warning")
+    }
+  })
+  
+  observeEvent(input$step2_prev, navigate_to_step(1))
+  observeEvent(input$step2_next, {
+    if (validate_step2()) {
+      navigate_to_step(3)
+    } else {
+      showNotification("Por favor, configure todas las variables", type = "warning")
+    }
+  })
+  
+  observeEvent(input$step3_prev, navigate_to_step(2))
+  
+  # Outputs
+  output$file_uploaded <- reactive({
+    !is.null(values$data)
+  })
+  outputOptions(output, "file_uploaded", suspendWhenHidden = FALSE)
+  
+  output$preview <- DT::renderDataTable({
+    req(values$data)
+    DT::datatable(head(values$data, 100), options = list(scrollX = TRUE))
+  })
+  
+  output$analysis_results <- renderText({
+    req(validate_step2(), values$data)
+    
+    formula_str <- paste(input$response_var, "~", 
+                        paste(input$predictor_vars, collapse = " + "))
+    
+    model <- switch(input$analysis_type,
+                   "lm" = lm(as.formula(formula_str), data = values$data),
+                   "glm" = glm(as.formula(formula_str), data = values$data),
+                   "aov" = aov(as.formula(formula_str), data = values$data))
+    
+    capture.output(summary(model))
+  })
+}
+
+shinyApp(ui, server)
+```
+
+::: notes
+Este ejemplo demuestra cómo implementar un flujo de trabajo secuencial con validación en cada etapa. Es un patrón común en aplicaciones de análisis de datos donde se requiere una progresión lógica y validada.
+
+La arquitectura utiliza `reactiveValues` para mantener el estado global de la aplicación, incluyendo los datos cargados y el paso actual. Esto permite un control más sofisticado que las variables reactivas simples.
+
+Las funciones de validación (`validate_step1`, `validate_step2`) aseguran que el usuario no pueda avanzar sin completar correctamente cada etapa. Esto es crucial en aplicaciones profesionales donde la integridad del proceso es fundamental.
+
+El patrón de navegación controlada (`navigate_to_step`) centraliza la lógica de cambio de estado, facilitando el mantenimiento y la extensibilidad. Agregar nuevos pasos requiere principalmente extender esta función y añadir las validaciones correspondientes.
+
+Esta implementación es especialmente valiosa en contextos donde se requiere documentar el proceso de análisis o donde múltiples usuarios pueden necesitar seguir protocolos estandarizados.
+:::
+
+------------------------------------------------------------------------
+
+### 📈 Consideraciones Técnicas y Mejores Prácticas (1)
+
+**✅ Ventajas del Patrón:**
+
+\- **Rendimiento optimizado:** Sin reconstrucción de elementos DOM
+
+\- **Consistencia de estado:** Los valores de inputs se mantienen entre transiciones
+
+\- **Experiencia fluida:** Transiciones instantáneas sin efectos de carga
+
+\- **Arquitectura escalable:** Fácil expansión y mantenimiento modular
+
+::: notes
+
+Para concluir esta sección, es importante entender que la visibilidad dinámica no es simplemente un truco técnico, sino una herramienta fundamental para crear aplicaciones Shiny de nivel profesional.
+
+En el contexto empresarial y académico, este patrón resuelve problemas reales: interfaces que deben adaptarse a diferentes tipos de usuarios, flujos de trabajo complejos que requieren validación, y aplicaciones de análisis donde el rendimiento es crítico.
+
+:::
+
+------------------------------------------------------------------------
+
+### 📈 Consideraciones Técnicas y Mejores Prácticas (2)
+
+**⚠️ Consideraciones de Implementación:**
+
+\- **Correspondencia de IDs:** Sincronización exacta entre controladores y paneles
+
+\- **Gestión de memoria:** Los inputs ocultos consumen recursos aunque no sean visibles
+
+\- **Validación de estado:** Verificación de valores antes de transiciones críticas
+
+\- **Accesibilidad:** Considerar usuarios con tecnologías asistivas
+
+::: notes
+
+Las consideraciones de memoria son particularmente importantes en aplicaciones de gran escala. Aunque los inputs ocultos mantienen sus valores, también consumen recursos. En aplicaciones con muchos paneles condicionales, es importante evaluar si este patrón es la solución más eficiente.
+
+:::
+
+------------------------------------------------------------------------
+
+## 🔧 Optimizaciones Recomendadas: 
+
+-   Usar `req()` para validación robusta de inputs
+-   Implementar `showNotification()` para feedback contextual
+-   Considerar `conditionalPanel()` para casos simples 
+-   Documentar la lógica de estado para facilitar mantenimiento
+
+> 💡 **Insight profesional:** Este patrón es especialmente valioso en dashboards empresariales y aplicaciones de análisis donde la experiencia del usuario y el rendimiento son prioritarios.
+
+::: notes
+
+La accesibilidad es otro aspecto crítico que a menudo se pasa por alto. Los usuarios con lectores de pantalla pueden tener dificultades para navegar interfaces que cambian dinámicamente sin señales claras. La implementación de `showNotification()` y `aria-labels` apropiados puede mejorar significativamente la experiencia.
+
+Finalmente, este patrón representa un principio más amplio en el desarrollo de software: la separación entre estructura y presentación. Al mantener todos los elementos en el DOM y controlar solo su visibilidad, creamos aplicaciones más robustas y mantenibles.
+
+:::
+
+------------------------------------------------------------------------
+
+### 👩‍💻/👨‍💻 Ejercicios (Sección 10.2)
+
+10.2.3 Exercises
+
+1.  **Controles Avanzados:** Usar un `checkboxInput("advanced")` para mostrar/ocultar controles adicionales dentro de un `tabsetPanel` oculto.
+
+"Use a hidden tabset to show additional controls only if the user checks an "advanced" check box."
+
+```{r, eval=FALSE}
+# 10.2.3 Exercises (1)
+# Use a hidden tabset to show additional controls only if the user checks an
+# "advanced" check box.
+
+# probar con 2.718283 para que el log de 1
+
+library(shiny)
+
+ui <- fluidPage(
+  sidebarLayout(
+      sidebarPanel = sidebarPanel(
+          numericInput("numero", "Número", value = 0, min = 0, max = 10, step = 1, width = "100px"),
+          actionButton("advanced", "Advanced", icon = icon("cogs", lib = "font-awesome")),
+          tabsetPanel(
+              id = "tabsetPanel_advanced",
+              type = "hidden",
+              tabPanel(
+                  title = "empty"
+                  ),
+              tabPanel(
+                  title = "tabPanel_advanced",
+                  hr(),
+                  prettyCheckbox(
+                      inputId = "logtransf",
+                      label = "Transformación logarítmica",
+                      icon = icon("check", lib = "font-awesome")
+                  )
+                  
+              )
+          )
+      ),
+      mainPanel = mainPanel(
+          verbatimTextOutput(outputId = "resultado")
+      )
+  )
+)
+
+server <- function(input, output, session) {
+    observeEvent(input$advanced,{
+        if (is.null(input$tabsetPanel_advanced) || input$tabsetPanel_advanced == "empty") {
+            updateTabsetPanel(session,
+                              inputId = "tabsetPanel_advanced",
+                              selected = "tabPanel_advanced")
+        } else {
+            updateTabsetPanel(session,
+                              inputId = "tabsetPanel_advanced",
+                              selected = "empty")
+        }
+        
+    }
+    )
+    output$resultado <- renderText(
+        if(input$logtransf == TRUE){
+            log(input$numero)
+        }else{
+            input$numero
+        }
+    )
+}
+
+
+shinyApp(ui, server)
+```
+
+------------------------------------------------------------------------
+
+2.  **Geoms de ggplot2:** Permitir elegir `geom_histogram`, `geom_freqpoly`, `geom_density`. Mostrar controles específicos (`binwidth`, `bw`) usando `tabsetPanel` oculto según el geom elegido.
+
+Create an app that plots ggplot(diamonds, aes(carat)) but allows the user to choose which geom to use: geom_histogram(), geom_freqpoly(), or geom_density(). Use a hidden tabset to allow the user to select different arguments depending on the geom: geom_histogram() and geom_freqpoly() have a binwidth argument; geom_density() has a bw argument.
+
+```{r, eval=FALSE}
+# 10.2.3 Exercises (2)
+
+# Crear una aplicación que trace ggplot(diamonds, aes(carat)) pero que
+# permita al usuario elegir qué geom usar: 
+# geom_histogram(), geom_freqpoly(), o geom_density(). 
+
+# Usar un tabset oculto para permitir al usuario seleccionar 
+# diferentes argumentos dependiendo del geom: 
+    # geom_histogram() y geom_freqpoly() tienen un argumento binwidth; 
+    # geom_density() tiene un argumento bw.
+
+library(shiny)
+library(tidyverse)
+
+ui <- fluidPage(
+    sidebarLayout(
+        sidebarPanel(
+            selectInput(
+                "geom_type",
+                "Tipo de geom",
+                choices = c("histogram", "freqpoly", "density"),
+                selected = "histogram"
+            ),
+            tabsetPanel(
+                id = "args",
+                type = "hidden",
+                tabPanel(
+                    title = "histogram",
+                    numericInput("binwidth", "Binwidth", value = 1, min = 0.1, max = 5, step = 0.1)
+                ),
+                tabPanel(
+                    title = "freqpoly",
+                    numericInput("binwidth", "Binwidth", value = 1, min = 0.1, max = 5, step = 0.1)
+                ),
+                tabPanel(
+                    title = "density",
+                    numericInput("bw", "Bandwidth", value = 1, min = 0.1, max = 5, step = 0.1)
+                )
+            )
+        ),
+        mainPanel(
+            plotOutput("resultado")
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    
+    observeEvent(input$geom_type, {
+        updateTabsetPanel(session, "args", selected = input$geom_type)
+    })
+    
+    output$resultado <- renderPlot({
+        if (input$geom_type == "histogram") {
+            ggplot(diamonds, aes(carat)) +
+                geom_histogram(binwidth = input$binwidth)
+        } else if (input$geom_type == "freqpoly") {
+            ggplot(diamonds, aes(carat)) +
+                geom_freqpoly(binwidth = input$binwidth)
+        } else {
+            ggplot(diamonds, aes(carat)) +
+                geom_density(bw = input$bw)
+        }
+    })
+}
+
+shinyApp(ui, server)
+```
+
+------------------------------------------------------------------------
+
+3.  **Extensión Geoms:** Permitir seleccionar *múltiples* geoms (0 a 3) y controlar sus parámetros independientemente. (Más complejo, puede requerir `renderUI`).
+
+Modify the app you created in the previous exercise to allow the user to choose whether each geom is shown or not (i.e. instead of always using one geom, they can picked 0, 1, 2, or 3). Make sure that you can control the binwidth of the histogram and frequency polygon independently.
+
+
+```{r, eval=FALSE}
+# 10.2.3 Exercises (3) v1
+
+# Modifica la aplicación que creaste en el ejercicio anterior para que el 
+# usuario pueda elegir si se muestra o no cada geom (es decir, en lugar de 
+# utilizar siempre un geom, puede elegir 0, 1, 2 o 3). Asegúrate de que puedes
+# controlar el binwidth del histograma y del polígono de frecuencias
+# de forma independiente.
+
+# Tomar esta solución no es adecuado porque la escala de la densidad es otra
+# Por eso la densidad queda "aplastada" contra las abscisas.
+
+library(shiny)
+library(ggplot2)
+
+ui <- fluidPage(
+    titlePanel("Gráficos de Diamonds con Geoms Opcionales"),
+    sidebarLayout(
+        sidebarPanel(
+            # Checkbox para mostrar u ocultar el histograma
+            checkboxInput("show_hist", "Mostrar Histograma", value = TRUE),
+            # Solo en caso de estar activado
+            conditionalPanel(
+                condition = "input.show_hist == true",
+                numericInput("binwidth_hist", "Binwidth (histograma)", 
+                             value = 0.5, min = 0.01, max = 5, step = 0.1)
+            ),
+            
+            # Checkbox para el polígono de frecuencias
+            checkboxInput("show_freq", "Mostrar Polígono de Frecuencias", value = TRUE),
+            conditionalPanel(
+                condition = "input.show_freq == true",
+                numericInput("binwidth_freq", "Binwidth (polígono de frecuencias)", 
+                             value = 0.5, min = 0.01, max = 5, step = 0.1)
+            ),
+            
+            # Checkbox para la curva de densidad
+            checkboxInput("show_density", "Mostrar Curva de Densidad", value = TRUE),
+            conditionalPanel(
+                condition = "input.show_density == true",
+                numericInput("bw_density", "Bandwidth (densidad)", 
+                             value = 1, min = 0.1, max = 5, step = 0.1)
+            )
+        ),
+        mainPanel(
+            plotOutput("resultado")
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    output$resultado <- renderPlot({
+        p <- ggplot(diamonds, aes(carat))
+        
+        # Se agrega la capa del histograma si está activado
+        if (input$show_hist) {
+            p <- p + geom_histogram(binwidth = input$binwidth_hist, 
+                                    fill = "skyblue", color = "black", alpha = 0.6)
+        }
+        
+        # Se agrega la capa del polígono de frecuencias si está activado
+        if (input$show_freq) {
+            p <- p + geom_freqpoly(binwidth = input$binwidth_freq, 
+                                   color = "darkgreen", linewidth = 1)
+        }
+        
+        # Se agrega la capa de densidad si está activada
+        if (input$show_density) {
+            p <- p + geom_density(bw = input$bw_density, 
+                                  color = "red", linewidth = 1)
+        }
+        
+        p
+    })
+}
+
+shinyApp(ui, server)
+```
+
+```{r, eval=FALSE}
+# 10.2.3 Exercises (3) v3 IA
+
+# esta otra solución de IA superpone todas las gráficas usando como factor de 
+# conversión la relación entre el conteo máximo de un histograma, calculado con 
+# graphics::hist() y la densidad máxima calculada con stats::density()
+
+library(shiny)
+library(ggplot2)
+
+ui <- fluidPage(
+    titlePanel("Gráficos de Diamonds con Geoms Opcionales y Eje Secundario"),
+    sidebarLayout(
+        sidebarPanel(
+            # Controles para el histograma
+            checkboxInput("show_hist", "Mostrar Histograma", value = TRUE),
+            conditionalPanel(
+                condition = "input.show_hist == true",
+                numericInput("binwidth_hist", "Anchura de cubeta (histograma)", 
+                             value = 0.5, min = 0.01, max = 5, step = 0.1)
+            ),
+            
+            # Controles para el polígono de frecuencias
+            checkboxInput("show_freq", "Mostrar Polígono de Frecuencias", value = TRUE),
+            conditionalPanel(
+                condition = "input.show_freq == true",
+                numericInput("binwidth_freq", "Anchura de cubeta (polígono de frecuencias)", 
+                             value = 0.5, min = 0.01, max = 5, step = 0.1)
+            ),
+            
+            # Controles para la curva de densidad
+            checkboxInput("show_density", "Mostrar Curva de Densidad", value = TRUE),
+            conditionalPanel(
+                condition = "input.show_density == true",
+                numericInput("bw_density", "Bandwidth (densidad)", 
+                             value = 1, min = 0.1, max = 5, step = 0.1)
+            )
+        ),
+        mainPanel(
+            plotOutput("resultado")
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    output$resultado <- renderPlot({
+        # --- 1. Calcular el valor de referencia (la altura máxima del histograma o del freqpoly)
+        # Usamos el ancho de cubeta según cuál esté activado:
+        # Si se muestra el histograma, usamos input$binwidth_hist, de lo contrario, si se muestra el freqpoly, usamos input$binwidth_freq.
+        ref_binwidth <- if (input$show_hist) {
+            input$binwidth_hist
+        } else if (input$show_freq) {
+            input$binwidth_freq
+        } else {
+            NA
+        }
+        
+        if (!is.na(ref_binwidth)) {
+            # Crear los "breaks" (límites de los bins) usando el rango de los datos
+            breaks <- seq(min(diamonds$carat), max(diamonds$carat), by = ref_binwidth)
+            if (max(breaks) < max(diamonds$carat)) {
+                breaks <- c(breaks, max(diamonds$carat))
+            }
+            # Calcular el histograma sin graficar
+            h <- hist(diamonds$carat, breaks = breaks, plot = FALSE)
+            ref_max <- max(h$density)
+        } else {
+            ref_max <- NA
+        }
+        
+        # --- 2. Calcular la máxima densidad de la curva (usando la función base density())
+        d <- density(diamonds$carat, bw = input$bw_density)
+        dens_max <- max(d$y)
+        
+        # --- 3. Definir el factor de escalado; si no hay referencia, dejamos el factor en 1.
+        scale_factor <- if (!is.na(ref_max) && dens_max > 0) {
+            ref_max / dens_max
+        } else {
+            1
+        }
+        
+        # --- Construir el gráfico
+        p <- ggplot(diamonds, aes(carat))
+        
+        if (input$show_hist) {
+            p <- p + geom_histogram(
+                aes(y = after_stat(density)),
+                binwidth = input$binwidth_hist,
+                fill = "skyblue", color = "black", alpha = 0.6
+            )
+        }
+        
+        if (input$show_freq) {
+            p <- p + geom_freqpoly(
+                aes(y = after_stat(density)),
+                binwidth = input$binwidth_freq,
+                color = "darkgreen", linewidth = 1
+            )
+        }
+        
+        if (input$show_density) {
+            p <- p + geom_density(
+                aes(y = after_stat(density) * scale_factor),
+                bw = input$bw_density,
+                color = "red", linewidth = 1
+            )
+        }
+        
+        # Si tenemos referencia (por ejemplo, el histograma o freqpoly se muestran),
+        # añadimos un eje secundario que "deshaga" el escalado para la densidad.
+        if (!is.na(ref_max)) {
+            p <- p + scale_y_continuous(
+                name = "Densidad (histograma / polígono)",
+                sec.axis = sec_axis(~ . / scale_factor, name = "Densidad (curva)")
+            )
+        }
+        
+        p + theme_minimal()
+    })
+}
+
+shinyApp(ui, server)
+```
+
+
+```{r, eval=FALSE}
+# 10.2.3 Exercises (3) v3 IA (modificado para tabsetPanel)
+
+library(shiny)
+library(ggplot2)
+
+ui <- fluidPage(
+    titlePanel("Gráficos de Diamonds con Geoms Opcionales y Eje Secundario"),
+    sidebarLayout(
+        sidebarPanel(
+            # Controles para el histograma
+            checkboxInput("show_hist", "Mostrar Histograma", value = TRUE),
+            # tabsetPanel oculto para el histograma
+            tabsetPanel(
+                id = "hist_controls", # ID único
+                type = "hidden",
+                tabPanel(
+                    title = "hist_active",
+                    numericInput("binwidth_hist", "Anchura de cubeta (histograma)", 
+                                 value = 0.5, min = 0.01, max = 5, step = 0.1)
+                ),
+                tabPanel(title = "hist_inactive")
+            ),
+            
+            # Controles para el polígono de frecuencias
+            checkboxInput("show_freq", "Mostrar Polígono de Frecuencias", value = TRUE),
+            # tabsetPanel oculto para el polígono de frecuencias
+            tabsetPanel(
+                id = "freq_controls", # ID único
+                type = "hidden",
+                tabPanel(
+                    title = "freq_active",
+                    numericInput("binwidth_freq", "Anchura de cubeta (polígono de frecuencias)", 
+                                 value = 0.5, min = 0.01, max = 5, step = 0.1)
+                ),
+                tabPanel(title = "freq_inactive")
+            ),
+            
+            # Controles para la curva de densidad
+            checkboxInput("show_density", "Mostrar Curva de Densidad", value = TRUE),
+            # tabsetPanel oculto para la densidad
+            tabsetPanel(
+                id = "density_controls", # ID único
+                type = "hidden",
+                tabPanel(
+                    title = "density_active",
+                    numericInput("bw_density", "Bandwidth (densidad)", 
+                                 value = 1, min = 0.1, max = 5, step = 0.1)
+                ),
+                tabPanel(title = "density_inactive")
+            )
+        ),
+        mainPanel(
+            plotOutput("resultado")
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    # Observador para el histograma
+    observeEvent(input$show_hist, {
+        updateTabsetPanel(session, "hist_controls", 
+                          selected = if(input$show_hist) "hist_active" else "hist_inactive")
+    })
+    
+    # Observador para el polígono de frecuencias
+    observeEvent(input$show_freq, {
+        updateTabsetPanel(session, "freq_controls", 
+                          selected = if(input$show_freq) "freq_active" else "freq_inactive")
+    })
+    
+    # Observador para la curva de densidad
+    observeEvent(input$show_density, {
+        updateTabsetPanel(session, "density_controls", 
+                          selected = if(input$show_density) "density_active" else "density_inactive")
+    })
+
+    output$resultado <- renderPlot({
+        # --- 1. Calcular el valor de referencia (la altura máxima del histograma o del freqpoly)
+        # Usamos el ancho de cubeta según cuál esté activado:
+        # Si se muestra el histograma, usamos input$binwidth_hist, de lo contrario, si se muestra el freqpoly, usamos input$binwidth_freq.
+        ref_binwidth <- if (input$show_hist) {
+            input$binwidth_hist
+        } else if (input$show_freq) {
+            input$binwidth_freq
+        } else {
+            NA
+        }
+        
+        if (!is.na(ref_binwidth)) {
+            # Crear los "breaks" (límites de los bins) usando el rango de los datos
+            breaks <- seq(min(diamonds$carat), max(diamonds$carat), by = ref_binwidth)
+            if (max(breaks) < max(diamonds$carat)) {
+                breaks <- c(breaks, max(diamonds$carat))
+            }
+            # Calcular el histograma sin graficar
+            h <- hist(diamonds$carat, breaks = breaks, plot = FALSE)
+            ref_max <- max(h$density)
+        } else {
+            ref_max <- NA
+        }
+        
+        # --- 2. Calcular la máxima densidad de la curva (usando la función base density())
+        d <- density(diamonds$carat, bw = input$bw_density)
+        dens_max <- max(d$y)
+        
+        # --- 3. Definir el factor de escalado; si no hay referencia, dejamos el factor en 1.
+        scale_factor <- if (!is.na(ref_max) && dens_max > 0) {
+            ref_max / dens_max
+        } else {
+            1
+        }
+        
+        # --- Construir el gráfico
+        p <- ggplot(diamonds, aes(carat))
+        
+        if (input$show_hist) {
+            p <- p + geom_histogram(
+                aes(y = after_stat(density)),
+                binwidth = input$binwidth_hist,
+                fill = "skyblue", color = "black", alpha = 0.6
+            )
+        }
+        
+        if (input$show_freq) {
+            p <- p + geom_freqpoly(
+                aes(y = after_stat(density)),
+                binwidth = input$binwidth_freq,
+                color = "darkgreen", linewidth = 1
+            )
+        }
+        
+        if (input$show_density) {
+            p <- p + geom_density(
+                aes(y = after_stat(density) * scale_factor),
+                bw = input$bw_density,
+                color = "red", linewidth = 1
+            )
+        }
+        
+        # Si tenemos referencia (por ejemplo, el histograma o freqpoly se muestran),
+        # añadimos un eje secundario que "deshaga" el escalado para la densidad.
+        if (!is.na(ref_max)) {
+            p <- p + scale_y_continuous(
+                name = "Densidad (histograma / polígono)",
+                sec.axis = sec_axis(~ . / scale_factor, name = "Densidad (curva)")
+            )
+        }
+        
+        p + theme_minimal()
+    })
+}
+
+shinyApp(ui, server)
+```
+
+
+------------------------------------------------------------------------
+
+## Última caso y una herramienta muy poderosa... ☢
+
+A veces hay que construir soluciones particulares en el momento
+
+![](img/herramientas_genéricas.jpg){width="50%"}
+
+::: notes
+Quizás tenemos que llegar a muchas ventanas... no sabemos cuántas ni qué tan alto está cada una...
+:::
+
+## Solución 🧠
+
+Podemos crear dinámicamente (en tiempo de ejecución) tantas soluciones como necesitemos y que se adapten a cada situación
+
+![](img/herramientas_adaptadas_al_destino.jpg){width="50%"}
+
+::: notes
+Ponemos a trabajar a shiny para crear tantos inputs como sea necesario
+:::
+
+------------------------------------------------------------------------
+
+## 3. 🚀 Crear UI con Código (`renderUI`/`uiOutput`) 🎨✨
+
+**🎯 Objetivo:**
+
+Generar UI dinámicamente desde el servidor cuando las otras técnicas no son suficientes (ej: número arbitrario de inputs, tipos de input variables).
+
+::: notes
+Llegamos a la tercera y más potente técnica: **Crear UI con Código**, usando `renderUI()` y `uiOutput()`.
+
+Esta técnica es su salvavidas cuando las otras dos no son suficientes. Por ejemplo, si necesitan generar un número *arbitrario* de inputs (no una cantidad fija de 2 o 3), o si el *tipo* de input que necesitan generar varía dinámicamente, o si quieren construir un bloque de UI completamente nuevo y complejo.
+
+¿Cómo funciona? Es un patrón de dos partes: [▶]{style="color: #FF0000;"}
+:::
+
+. . .
+
+**🔧 Cómo:**
+
+1.  **`uiOutput("outputId")` en la UI:** 📍 Define un *lugar* donde se insertará la UI generada.
+
+::: notes
+1.  Primero, en la función `ui`, se coloca un `uiOutput()`. Piensen en `uiOutput()` como un "marcador de posición" o un "espacio vacío" en la UI donde se insertará el contenido generado dinámicamente. Le dan un `outputId` (como "dynamic_input_spot") para identificarlo. [▶]{style="color: #FF0000;"}
+:::
+
+. . .
+
+2.  **`output$outputId <- renderUI({...})` en el Server:** 🏗️ Código R que genera el HTML (usando funciones `*Input`, `tags`, etc.) que se insertará en `uiOutput`.
+
+::: notes
+2.  Segundo, en la función `server`, se define un `output` reactivo con el mismo `outputId` (ej: `output$dynamic_input_spot`). Y este `output` debe estar envuelto en `renderUI({...})`. Dentro de `renderUI`, escriben código R normal que devuelve elementos de UI de Shiny (como `sliderInput()`, `numericInput()`, `div()`, `tags$p()`, etc.). El resultado de este código R es HTML que Shiny inyecta en el `uiOutput` correspondiente en el navegador.
+
+**¿Cuándo necesitamos este patrón?**
+
+-   Cuando el número de inputs es impredecible (¿3 variables? ¿30? ¿300?)
+-   Cuando el tipo de control cambia radicalmente
+-   Cuando quieren crear experiencias verdaderamente personalizadas
+
+La desventaja principal de `renderUI` es que, como la UI se genera reactivamente, puede haber un pequeño retraso o un "parpadeo" cuando se vuelve a renderizar, a diferencia de `update*Input` o `tabsetPanel` oculto que son más fluidos.
+:::
+
+------------------------------------------------------------------------
+
+### 🎪 Ejemplo Básico: Crear Input Dinámico
+
+**🎯 Misión:** Crear un control que se transforme entre `sliderInput` y `numericInput` según la elección del usuario (para precisión puntual o facilitar un análisis dinámico)
+
+```{r renderui-basic-app, eval=FALSE}
+#| code-line-numbers: "1-19|1-5|2|2-3|2-4|6-18"
+#| echo: true
+#| RStudio-View: Showcase
+
+ui <- fluidPage(
+  textInput("label", "📝 Etiqueta", "Selecciona Label"),
+  selectInput("type", "🎛️ Tipo", c("slider", "numeric")),
+  uiOutput("dynamic_input_spot") # <-- 🎯 Lugar para el input dinámico
+)
+server <- function(input, output, session) {
+  output$dynamic_input_spot <- renderUI({ # <-- 🎨 Genera la UI
+    if (input$type == "slider") {
+      sliderInput("dynamicValue", input$label, value = 0, min = 0, max = 10)
+    } else {
+      numericInput("dynamicValue", input$label, value = 0, min = 0, max = 10)
+    }# 🔑 Clave: Ambos inputs tienen el mismo ID = "dynamicValue"
+    # El input generado tendrá id = "dynamicValue"
+  })
+  
+  # Para ver el valor (opcional)
+  # output$selectedValue <- renderText({ paste("Value:", input$dynamicValue) })
+}
+shinyApp(ui, server)
+```
+
+::: notes
+Veamos un ejemplo básico de `renderUI`. Nuestro objetivo es permitir al usuario elegir si quiere un `sliderInput` o un `numericInput`, y también personalizar su etiqueta.
+
+[▶]{style="color: #FF0000;"} En la UI, tenemos: [▶]{style="color: #FF0000;"}- Un `textInput` para que el usuario escriba la etiqueta (`input$label`). [▶]{style="color: #FF0000;"}- Un `selectInput` para que elija el tipo de control (`input$type`), con opciones "slider" o "numeric". [▶]{style="color: #FF0000;"}- Y lo más importante, un `uiOutput("dynamic_input_spot")` (línea 4), que es donde aparecerá nuestro control dinámico.
+
+[▶]{style="color: #FF0000;"} En el servidor, definimos `output$dynamic_input_spot` dentro de un `renderUI` (línea 7). Este `renderUI` reacciona a los cambios en `input$type` o `input$label` (porque son los dos inputs o reactivos dentro del entorno reactivo de renderUI). Dentro de `renderUI`, tenemos una simple condición `if (input$type == "slider")`.
+
+Si el tipo es "slider", devolvemos un `sliderInput`. De lo contrario, devolvemos un `numericInput`. Ambos inputs generados reciben el mismo `inputId`: "dynamicValue". Esto es imprescindible, ya que así podemos acceder al valor de este input generado a través de `input$dynamicValue`, sin importar si es un slider o un numeric input.
+
+Si ejecutan esta aplicación, verán que al cambiar el selector de tipo o la etiqueta, el input debajo cambia dinámicamente.
+:::
+
+------------------------------------------------------------------------
+
+### 🧪 Caso de App creada por Jesi Formoso
+
+```{r}
+#| eval: false
+#| include: true
+library(webchem)
+library(shiny)
+library(shinythemes)
+
+ui <- fluidPage(
+    theme = shinytheme("cerulean"),
+    
+    titlePanel("Solutions Calculator"),
+    
+    sidebarLayout(
+        sidebarPanel(
+            selectInput("mode", "Select calculation:",
+                        choices = c("Mass" = "mass",
+                                    "Volume" = "volume",
+                                    "Molarity" = "molarity")),
+            textInput("compound", "Insert compound", value = ""),
+            actionButton("search", "Search", class = "btn-primary"),
+            verbatimTextOutput("molecular_weight", placeholder = TRUE)
+        ),
+        
+        mainPanel(
+            uiOutput("dynamic_inputs"),
+            verbatimTextOutput("result", placeholder = TRUE)
+        )
+    )
+)
+
+server <- function(input, output, session) {
+    
+    options(scipen = 999)
+    
+    # Obtener peso molecular desde PubChem
+    mol_weight <- eventReactive(input$search, {
+        tryCatch({
+            cid_result <- get_cid(input$compound, from = "name")
+            if (nrow(cid_result) == 0 || is.na(cid_result$cid[1])) return(NA)
+            cid <- cid_result$cid[1]
+            prop <- pc_prop(cid, properties = "MolecularWeight")
+            if (nrow(prop) == 0 || is.na(prop$MolecularWeight[1])) return(NA)
+            as.numeric(prop$MolecularWeight[1])
+        }, error = function(e) {
+            print(e)
+            return(NA)
+        })
+    })
+    
+    # Mostrar el peso molecular
+    output$molecular_weight <- renderText({
+        mw <- mol_weight()
+        if (is.na(mw)) "Error: Compound not found or no molecular weight available."
+        else paste("Molecular weight:", mw, "g/mol")
+    })
+    
+    # Mostrar inputs según el modo
+    output$dynamic_inputs <- renderUI({
+        switch(input$mode,
+               
+               "mass" = tagList(
+                   fluidRow(
+                       column(6, numericInput("concentration", "Concentration", value = 1, min = 0)),
+                       column(6, selectInput("concentration_unit", "Unit", 
+                                             choices = c("nM (nanomolar)" = "nM", "µM (micromolar)" = "uM", "mM (millimolar)" = "mM", "M (molar)" = "M")))
+                   ),
+                   fluidRow(
+                       column(6, numericInput("volume", "Volume", value = 1, min = 0)),
+                       column(6, selectInput("volume_unit", "Unit", 
+                                             choices = c("µL (microliter)" = "uL", "mL (milliliter)" = "mL", "L (liter)" = "L")))
+                   )
+               ),
+               
+               "volume" = tagList(
+                   numericInput("mass", "Mass (g)", value = 1, min = 0),
+                   fluidRow(
+                       column(6, numericInput("concentration", "Concentration", value = 1, min = 0)),
+                       column(6, selectInput("concentration_unit", "Unit", 
+                                             choices = c("nM (nanomolar)" = "nM", "µM (micromolar)" = "uM", "mM (millimolar)" = "mM", "M (molar)" = "M")))
+                   )
+               ),
+               
+               "molarity" = tagList(
+                   numericInput("mass", "Mass (g)", value = 1, min = 0),
+                   fluidRow(
+                       column(6, numericInput("volume", "Volume", value = 1, min = 0)),
+                       column(6, selectInput("volume_unit", "Unit", 
+                                             choices = c("µL (microliter)" = "uL", "mL (milliliter)" = "mL", "L (liter)" = "L")))
+                   )
+               )
+        )
+    })
+    
+    # Calcular resultado
+    output$result <- renderText({
+        mw <- mol_weight()
+        if (is.null(mw) || is.na(mw)) return("Please search for a valid compound first.")
+        
+        mode <- input$mode
+        
+        # Unidades
+        conc_factor <- switch(input$concentration_unit,
+                              "nM" = 1e-9, "uM" = 1e-6, "mM" = 1e-3, "M" = 1)
+        
+        vol_factor <- switch(input$volume_unit,
+                             "uL" = 1e-6, "mL" = 1e-3, "L" = 1)
+        
+        if (mode == "mass") {
+            c <- input$concentration * conc_factor
+            v <- input$volume * vol_factor
+            mass <- c * v * mw
+            return(paste("Mass =", signif(mass, 5), "g"))
+            
+        } else if (mode == "volume") {
+            c <- input$concentration * conc_factor
+            if (c == 0) return("Concentration must be greater than zero.")
+            vol_L <- input$mass / (c * mw)
+            return(paste("Volume =", signif(vol_L * 1e3, 5), "mL"))  # muestra en mL
+            
+        } else if (mode == "molarity") {
+            v <- input$volume * vol_factor
+            if (v == 0) return("Volume must be greater than zero.")
+            molarity <- input$mass / (v * mw)
+            return(paste("Molarity =", signif(molarity, 5), "mol/L"))
+        }
+    })
+}
+
+shinyApp(ui, server)
+
+```
+
+::: notes
+**Ejemplo de UI Dinámica con renderUI y uiOutput**
+
+Esta aplicación fue diseñada para ilustrar cómo podemos crear interfaces de usuario que se adaptan en tiempo real a partir de parámetros definidos por el usuario y de datos externos.
+
+- **Selección del modo de cálculo:**  
+  El **selectInput** llamado `"mode"` permite elegir entre tres modos de cálculo — *mass*, *volume* y *molarity* —. Según la opción escogida, se generan controles específicos en el panel principal utilizando `renderUI()` en conjunto con `uiOutput("dynamic_inputs")`.
+
+- **Generación dinámica de controles:**  
+  En el servidor, la función `renderUI()` usa un `switch` para evaluar el valor de `input$mode` y, mediante **tagList** y `fluidRow`, genera las filas y columnas correspondientes con controles como `numericInput` y `selectInput`. Este enfoque permite que la interfaz se adapte sin necesidad de tener todos los controles visibles o renderizados de manera permanente.
+
+- **Integración con webchem para obtener datos externos:**  
+  Con una función reactiva basada en `eventReactive(input$search, { … })` se busca el peso molecular del compuesto ingresado por el usuario. Al capturar el resultado de la consulta a PubChem (usando la función `get_cid` y `pc_prop` de la librería **webchem**), se integra de manera interactiva la información química a los cálculos.
+
+- **Cálculo y presentación de resultados:**  
+  Dependiendo del modo seleccionado, se realizan diferentes operaciones de cálculo (usando factores de conversión según la unidad) y se muestra el resultado de forma reactiva mediante `renderText()` en el output `"result"`.
+
+- **Aspectos extras:**  
+  La aplicación utiliza el tema **cerulean** de `shinythemes` para mejorar la estética y demuestra buenas prácticas en el manejo de errores (con `tryCatch`) y en la validación de entradas con `req()`.  
+   
+Este ejemplo es un excelente caso para entender cómo la generación dinámica de UI puede simplificar la estructura de una aplicación y hacerla más flexible, adaptándose a distintos escenarios de entrada y proceso. Es una buena base de partida para explorar aplicaciones interactivas más complejas en Shiny.
+:::
+
+------------------------------------------------------------------------
+
+### 🧠 Preservar Estado al Recrear UI 🔄
+
+**⚠️ Problema:** Cuando `renderUI` se re-ejecuta (ej: al cambiar `input$type`), la UI anterior se destruye y se crea una nueva. 😱 ¡Se pierde el valor que el usuario había introducido! 😱
+
+**✨ Solución:** Usar `isolate()` para leer el valor *actual* del input (si existe) y usarlo como `value` inicial del *nuevo* input.
+
+```{r renderui-preserve-state-app, eval=FALSE}
+#| code-line-numbers: "|11|13-17"
+#| echo: true
+#| RStudio-View: Showcase
+
+# ui es la misma que antes
+ui <- fluidPage(
+  textInput("label", "label", "Select Label"),
+  selectInput("type", "type", c("slider", "numeric")),
+  uiOutput("dynamic_input_spot") 
+)
+
+server <- function(input, output, session) {
+  output$dynamic_input_spot <- renderUI({ 
+    # 🧠 Memoria: Lee el valor actual SIN crear dependencia reactiva en input$dynamicValue
+    current_value <- isolate(input$dynamicValue) %||% 0 # Usa 0 si no existe aún
+    
+    if (input$type == "slider") {
+      sliderInput("dynamicValue", input$label, value = current_value, min = 0, max = 10) # 🎯 Preserva el valor
+    } else {
+      numericInput("dynamicValue", input$label, value = current_value, min = 0, max = 10) # 🎯 Preserva el valor
+    }
+  })
+}
+shinyApp(ui, server)
+```
+
+**🔑 Clave:** `isolate()` = "Lee este valor, pero NO hagas que me reactive por él"
+
+::: notes
+Hay una piedra en el camino al usar `renderUI`: la pérdida de estado.
+
+Cuando `renderUI` se re-ejecuta (por ejemplo, porque cambiamos `input$type` de "slider" a "numeric"), Shiny *destruye* el elemento UI anterior y *crea uno completamente nuevo*. Si el usuario había introducido un valor en el input anterior (ej: 5 en el slider), ese valor se pierde y el nuevo input (el numericInput) aparece con su valor por defecto (0). Esto es una mala experiencia de usuario.
+
+La solución es **preservar el estado** usando `isolate()`. Fíjense en la línea 11. [▶]{style="color: #FF0000;"} Antes de generar el nuevo input, intentamos leer el `current_value` de `input$dynamicValue` usando `isolate(input$dynamicValue)`. - `isolate()` es crucial aquí. Le dice a Shiny: "Lee el valor de `input$dynamicValue`, pero **no** hagas que este `renderUI` se dispare de nuevo si *solo* `input$dynamicValue` cambia." Queremos que `renderUI` se reactive cuando `input$type` o `input$label` cambien, no cuando el usuario interactúe con el propio input dinámico. - `%||%` es un helper de Shiny, operador de coalescencia (fusión) nula, que también está en purrr y R base reciente 4.4.0+, que significa "si lo que está a la izquierda es `NULL` usá lo que pongo a la derecha (lo cual ocurre la primera vez que se carga la app o si el input se destruye y no existe aún), en esos casos, `isolate(input$dynamicValue)%||% 0`entonces, usa 0 como valor por defecto".
+
+[▶]{style="color: #FF0000;"}Luego, pasamos este `current_value` como el `value` inicial del `sliderInput` o `numericInput` que estamos creando.
+
+Así, cuando el tipo de input cambia, el nuevo input se genera con el último valor que el usuario había introducido, manteniendo la experiencia fluida.
+:::
+
+------------------------------------------------------------------------
+
+## 🎭 Múltiples Controles Dinámicos (1) {.smaller}
+
+**🎯 Objetivo:** Generar un número arbitrario de controles (ej: `textInput` para N colores).
+
+**🎨 Ejemplo:** Inputs para colores de una paleta
+
+**🔧 Técnica:** Usando programación funcional (`purrr::map` o `lapply`) dentro de `renderUI`.
+
+![](img/app_ui_output.jpg){fig-align="center" width="40%"}
+
+------------------------------------------------------------------------
+
+## 🎭 Múltiples Controles Dinámicos (2) {.smaller}
+
+**🏗️ Arquitectura:**
+
+-   **UI (parte clave):** Un `numericInput("n")` para definir la cantidad, y un `uiOutput("col_inputs")` para el lugar donde aparecerán los `textInput` dinámicos.
+
+**🔑 Secretos del Éxito:**
+
+\- 🏷️ Generar nombres de ID únicos (`col_names`).
+
+\- 🔄 Usar `map()` o `lapply()` para crear la lista de componentes UI.
+
+\- 🎯 Acceder a valores de input dinámicos con `input[[inputId_string]]`.
+
+\- 🧠 Usar`isolate()` y `%||%` para preservar estado y manejar`NULL\`s.
+
+------------------------------------------------------------------------
+
+## Código funcional para obtener una lista de elementos de UI
+
+```{r renderui-multiple-app-ui, eval=FALSE, echo=TRUE}
+#| code-line-numbers: "|1-6|3-4|9-10|9-10,12-18|20-24"
+# UI completa (extracto relevante)
+ui <- fluidPage(
+  numericInput("n", "Number of colours", value = 3, min = 1),
+  uiOutput("col_inputs"), # Lugar para los textInput
+  textOutput("palette")  # Para mostrar los colores ingresados
+)
+
+server <- function(input, output, session) {
+  # Define IDs de los inputs dinámicos
+  col_names <- reactive(paste0("col", seq_len(input$n))) # col1, col2, col3, ...
+  
+  # Genera la UI con N textInput
+  output$col_inputs <- renderUI({ 
+    map(col_names(), ~ {
+      current_val <- isolate(input[[.x]]) # Preserva valor
+      textInput(.x, label = NULL, value = current_val %||% "")
+    })
+  })
+  
+  # Recolecta y muestra los valores
+  output$palette <- renderText({ 
+    values <- map_chr(col_names(), ~ input[[.x]] %||% "")
+    paste(values, collapse = ", ")
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+::: notes
+`renderUI` brilla cuando necesitas generar un número *arbitrario* de controles. Imagina que quieres que el usuario introduzca una lista de colores, y el número de colores puede variar.
+
+Vamos a ejecutar el código para ver de qué se trata (ir a ejemplo_completo_swatch en Parte UI (extracto)) y enseguida volvemos.
+
+[▶]{style="color: #FF0000;"}
+[▶]{style="color: #FF0000;"}
+
+Vemos el **objetivo** (de generar N inputs), cómo se logra? usando **programación funcional** con `map` o `lapply`, y la **estructura clave de la UI**: un `numericInput` para `n` y un `uiOutput` para los inputs dinámicos. 
+
+[▶]{style="color: #FF0000;"}
+Finalmente, las **claves** de la implementación, como generar IDs únicos con el reactivo col_names(), 
+
+
+[▶]{style="color: #FF0000;"}
+usar `map` en la definición de `output$col_inputs` dentro de un `renderUI`, donde `map` se usa para crear los `textInput` individuales. Fíjense cómo se usa `isolate(input[[.x]]) %||% ""` para preservar el valor de cada input dinámico.
+
+
+Noten la importancia de `isolate()` en la línea 15 para preservar el estado.
+
+
+[▶]{style="color: #FF0000;"}
+\- Y finalmente agrego una concatenación de los nombres de los colores con `output$palette`, que recolecta los valores de todos los inputs generados dinámicamente usando `map_chr(col_names(), ~ input[[.x]] %||% "")` y los une en una cadena.
+
+Este patrón con `map` es increíblemente poderoso para construir UI que se adapta a las necesidades del usuario, sin tener que codificar manualmente cada posible combinación.
+
+Se puede ir al código para ejecutarlo.
+:::
+
+
+```{r ejemplo_completo_swatch}
+#| eval: false
+#| include: false
+library(shiny)
+library(ggplot2)
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      numericInput("n", "Number of colours", value = 3, min = 1),
+      uiOutput("col"),
+    ),
+    mainPanel(
+      plotOutput("plot")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  col_names <- reactive(paste0("col", seq_len(input$n))) # genera los nombres de textInput para los colores
+
+  output$col <- renderUI({
+    map(col_names(), ~ textInput(.x, NULL, value = isolate(input[[.x]]))) # crea UI (textInput) con inputID desde col_names, con el label vacío, con el valor por defecto que surge de recordar lo último que el usuario le dio
+  })
+
+  output$plot <- renderPlot({ # realiza el plot
+    cols <- map_chr(col_names(), ~ input[[.x]] %||% "") #primero genera una lista de characters con el contenido de los input$col1, input$col2, etc.
+    # convert empty inputs to transparent
+    cols[cols == ""] <- NA # si hubiera algún elemento vacío le asigna NA
+
+    barplot(                 # devuelve un diagrama de barras
+      rep(1, length(cols)),  # donde primero hay un vector de 1's repetidos tantas veces como colores hay
+      col = cols,            # con los colores que se dieron a los input[[col1]], etc
+      space = 0,
+      axes = FALSE           # no se dibujan los ejes
+    )
+  }, res = 96)
+}
+
+shinyApp(ui, server)
+```
+
+------------------------------------------------------------------------
+
+### 📝 Caso de Uso: Filtrado Dinámico de Data Frames
+
+**Objetivo:** Crear controles de filtro automáticamente basados en los tipos de columna de un data frame seleccionado.
+
+-   Numérico -\> `sliderInput` (rango). 
+-   Factor -\> `selectInput` (múltiple).
+
+::: notes
+Este es uno de los ejemplos más completos y realistas para `renderUI`: la creación de **filtros dinámicos para un data frame**.
+
+Imagina una aplicación donde el usuario selecciona un dataset, y tú quieres generar automáticamente los controles de filtro adecuados para cada columna de ese dataset. Por ejemplo, si una columna es numérica, quieres un `sliderInput` para filtrar por rango. Si es un factor, un `selectInput` para elegir múltiples niveles
+
+:::
+
+------------------------------------------------------------------------
+
+### 📝 Caso de Uso: Filtrado Dinámico de Data Frames
+
+**Estrategia:** 
+
+1.  Helper `make_ui(col_data, col_name)`: Genera el control UI apropiado.
+2.  Helper `filter_var(col_data, input_val)`: Devuelve vector lógico de filtro para esa columna. 
+3.  En UI: `selectInput("dataset")`, `uiOutput("filter_controls")`. 
+4.  En Server: -   `reactive(data())`: Obtiene el dataset seleccionado.
+    -   `reactive(vars())`: Obtiene nombres de columnas. 
+    -   `renderUI`: Usa `map(vars(), ~ make_ui(data()[[.x]], .x))` para generar todos los controles.     -   `reactive(selected())`: Usa `map()` para obtener filtros lógicos por variable y `reduce(`&`)` para combinarlos. 
+    -   `renderTable`: Muestra `data()[selected(), ]`.
+
+::: notes
+
+La estrategia se divide en varios componentes:   
+
+1. Una función de ayuda `make_ui()` que toma los datos de una columna y su nombre, y devuelve el control UI apropiado (`sliderInput`, `selectInput`, o `NULL` si no es un tipo soportado). 
+
+2. Otra función de ayuda `filter_var()` que toma los datos de una columna y el valor del input del filtro, y devuelve un vector lógico (`TRUE`/`FALSE`) que indica qué filas cumplen con el filtro. 
+
+3. En la UI, solo necesitamos un `selectInput` para el dataset y un `uiOutput` donde se insertarán todos los controles de filtro. 
+
+4. En el servidor, la lógica es más elaborada:
+    - Un reactivo `data()` para cargar el dataset seleccionado. 
+    - Un reactivo `vars()` para obtener los nombres de las columnas. 
+    - El `renderUI` es la pieza central: usa `map()` para iterar sobre las columnas y llamar a `make_ui()` para cada una, generando todos los controles de filtro. 
+    - Un reactivo `selected()` es donde ocurre la lógica de filtrado: también usa `map()` para aplicar `filter_var()` a cada columna con su input correspondiente, y luego `reduce()` de `purrr` para combinar todos esos vectores lógicos con un `&` (AND) para obtener el filtro final. 
+    - Finalmente, un `renderTable` muestra las primeras 12 filas del data frame filtrado.
+
+Este es un patrón de diseño muy potente para construir aplicaciones flexibles que se adaptan a la estructura de los datos del usuario.
+
+:::
+
+------------------------------------------------------------------------
+
+### Filtrado Dinámico: Código
+
+```{r dynamic-filter-app, eval=FALSE}
+#| echo: true
+#| RStudio-View: Showcase
+#| code-line-numbers: "false"
+
+library(purrr)
+library(dplyr)
+
+# Helper para crear UI por tipo de variable (recibe un vector y un nombre)
+make_ui <- function(x, var) {
+  if (is.numeric(x)) {
+    rng <- range(x, na.rm = TRUE)
+    sliderInput(var, var, min = rng[1], max = rng[2], value = rng)
+  } else if (is.factor(x)) {
+    levs <- levels(x)
+    selectInput(var, var, choices = levs, selected = levs, multiple = TRUE)
+  } else {
+    # Otros tipos no soportados -> no genera control
+    NULL 
+  }
+}
+
+# Helper para filtrar datos basado en el input (recibe un vector y el rango de
+# valores que ingreso el usuario en el input generado). Devuelve un vector 
+# lógico, que luego podrá operarse lógicamente con los de las otras variables 
+filter_var <- function(x, val) {
+  if (is.numeric(x)) {
+    !is.na(x) & x >= val[1] & x <= val[2]
+  } else if (is.factor(x)) {
+    x %in% val # Si es NULL (aún no existe input), esto da TRUE para todos (ok)
+  } else {
+    TRUE # No filtrar si no hay control
+  }
+}
+
+# Lista de data frames en 'datasets'
+dfs <- keep(ls("package:datasets"), ~ is.data.frame(get(.x, "package:datasets")))
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("dataset", label = "Dataset", choices = dfs),
+      uiOutput("filter") # Lugar para los controles de filtro
+    ),
+    mainPanel(
+      tableOutput("data")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # Datos seleccionados
+  data <- reactive({
+    req(input$dataset) # nos aseguramos que input$dataset sea truthy (que no sea FALSE, NULL,"", etc)
+    get(input$dataset, "package:datasets") # devuelve el objeto que tiene el nombre input$dataset
+  })
+  
+  # Nombres de variables del dataset
+  vars <- reactive(names(data())) # necesitaremos un vector de nombres (lo que es usual en programación funcional)
+  
+  # Genera los controles de filtro en la UI
+  output$filter <- renderUI({
+      # data()[[.x]] es la forma de conseguir el vector desde el reactivo de los nombres: vars()
+      # .x es la forma de conseguir el nombre desde vars()
+    map(vars(), ~ make_ui(data()[[.x]], .x)) # con los vectores y los nombres genera los input
+  })
+  
+  # Lógica de filtrado combinada (selected() es un reactivo que devuelve un vector lógico)
+  selected <- reactive({
+    # Aplica filter_var a cada variable/input correspondiente
+    each_var <- map(vars(), ~ filter_var(data()[[.x]], input[[.x]])) # 
+    # Combina todos los vectores lógicos con &, o sea con la operación logical1 & logical2 & logical3
+      # reduce(list(TRUE, TRUE, TRUE), `&`) # que es como (TRUE & TRUE) & TRUE
+      # [1] TRUE
+      # reduce(list(TRUE, TRUE, FALSE), `&`)
+      # [1] FALSE
+    reduce(each_var, `&`)
+    # Alternativa base R: Reduce(`&`, each_var)
+  })
+  
+  # Muestra la tabla filtrada
+  output$data <- renderTable({
+    req(selected()) # Espera a que el filtro esté listo
+    head(data()[selected(), , drop = FALSE], 12) # drop=FALSE por si queda 1 col, que no intente convertirlo en un vector (ver el parámetro drop en la ayuda de ?`[`)
+  })
+}
+
+shinyApp(ui, server)
+```
+
+::: notes
+Aquí está el código completo para el filtrado dinámico. No lo ejecutaremos en vivo por la complejidad, pero les explicaré los detalles.
+
+Las funciones `make_ui` y `filter_var` son el corazón de la flexibilidad. 
+- `make_ui` usa `if/else` para comprobar si la columna `x` es numérica o un factor, y devuelve un `sliderInput` o un `selectInput` respectivamente. Si no es ninguno de esos, devuelve `NULL`, lo que significa que no se generará un control de filtro para esa columna. 
+- `filter_var` obtiene un vector lógico que será usado luego para filtrar. 
+
+Para numéricos, comprueba si el valor está dentro del rango del slider. 
+Para factores, comprueba si los niveles de la columna están entre los seleccionados en el `selectInput` múltiple. 
+
+Es importante notar que si un input dinámico aún no ha sido creado, `input[[.x]]` será `NULL`, y `filter_var` está diseñado para manejarlo (ej: `x %in% NULL` en R devuelve un vector de `FALSE` para todas las filas, lo cual es correcto si no hay selección).
+
+En el servidor, `data()` y `vars()` son reactivos que recuperan el dataset y sus nombres de columna. `output$filter <- renderUI({...})` usa `map` para llamar a `make_ui` para cada columna, generando una lista de controles de UI que Shiny renderiza en el `uiOutput("filter")`.
+
+Finalmente, `selected <- reactive({...})` es el reactivo que hace el filtrado. También usa `map` para llamar a `filter_var` para cada columna (pasándole los datos de la columna y el valor de su input dinámico). Esto devuelve una lista de vectores lógicos. Luego, `purrr::reduce(each_var, \`&\`)`combina todos esos vectores lógicos con la operación AND (`&`), dándonos un único vector lógico que indica qué filas deben mostrarse. El`output\$data\` simplemente muestra las primeras 12 filas del dataset filtrado.
+
+Esta aplicación es un excelente ejemplo de cómo combinar las habilidades de reactividad, `renderUI` y programación funcional para crear una interfaz de usuario altamente adaptable.
+:::
+
+------------------------------------------------------------------------
+
+### Técnica Relacionada: Cuadros de Diálogo (`modalDialog`)
+
+-   `showModal(modalDialog(...))` se llama desde el servidor.
+-   El contenido del `modalDialog(...)` puede ser UI *generada dinámicamente*, igual que con `renderUI`.
+-   Útil para solicitar información específica al usuario antes de continuar.
+
+**Ejemplo (Ejercicio 10.3.5.2):** Pedir contraseña.
+
+```{r modal-password-app, eval=FALSE}
+#| echo: true
+#| RStudio-View: Showcase
+ui <- fluidPage(
+  actionButton("go", "Enter password"),
+  textOutput("text")
+)
+server <- function(input, output, session) {
+  observeEvent(input$go, {
+    showModal(modalDialog(
+      # UI dentro del modal
+      passwordInput(inputId = "password", label = NULL), #NULL para no dar una label 
+      title = "Please enter your password",
+      footer = modalButton("Cerrar ventana modal") # Añadir botón para cerrar
+    ))
+  })
+  
+  output$text <- renderText({
+    # isTruthy evalúa NULL, "", FALSE como FALSE
+    if (!isTruthy(input$password)) {
+      "No password"
+    } else {
+      "Password entered" # (No muestra la contraseña real)
+    }
+  })
+}
+shinyApp(ui, server)
+```
+
+> **¿Por qué desaparece la contraseña?** Cada vez que se hace clic en "Enter password", `showModal` se llama de nuevo, creando una instancia *nueva* del `modalDialog` con un `passwordInput` *nuevo* (vacío). El input anterior (`input$password`) sigue existiendo en el servidor pero ya no está visible ni asociado al nuevo diálogo.
+
+::: notes
+Una técnica relacionada con la generación de UI dinámica es el uso de **cuadros de diálogo modales** con `modalDialog()`.
+
+Un `modalDialog` es una ventana emergente que se superpone a la aplicación principal y requiere la interacción del usuario antes de poder continuar. Se muestra llamando a `showModal()` desde el servidor.
+
+Lo importante aquí es que el contenido de un `modalDialog` se define de la misma manera que se define la UI en general, e incluso puede contener UI *generada dinámicamente* como si fuera un `renderUI`. Esto es útil para pedir confirmaciones, recoger información adicional o mostrar mensajes importantes.
+
+El ejemplo aquí muestra un botón "Enter password" y un `textOutput`. Cuando se hace clic en el botón, el `observeEvent` llama a `showModal()`. Dentro del `modalDialog`, creamos un `passwordInput` con el ID "password".
+
+El `output$text` comprueba y nos informa si se ha introducido una contraseña.
+
+Ahora, un punto importante a considerar con los modales: si el usuario introduce una contraseña, cierra el modal, y luego vuelve a hacer clic en "Enter password", verá que el campo de contraseña está vacío de nuevo. Esto es porque `showModal()` cada vez que se llama, *crea una nueva instancia* del `modalDialog` y de todos sus inputs. Aunque el valor `input$password` en el servidor aún conserva lo que se escribió la primera vez, el nuevo `passwordInput` en el modal es una entidad separada y vacía. Esto es algo a tener en cuenta para la experiencia de usuario.
+:::
+
+------------------------------------------------------------------------
+
+### 👩‍💻/👨‍💻 Ejercicios (Sección 10.3.5)
+
+1.  **Alternativa a `renderUI`:** Reimplementar el primer ejemplo (slider/numeric) usando `conditionalPanel` o `tabsetPanel` oculto. ¿Cómo mantener valores sincronizados?
+
+```{r, eval=FALSE}
+ui <- fluidPage(
+  selectInput("type", "type", c("slider", "numeric")),
+  uiOutput("numeric")
+)
+server <- function(input, output, session) {
+  output$numeric <- renderUI({
+    if (input$type == "slider") {
+      sliderInput("n", "n", value = 0, min = 0, max = 100)
+    } else {
+      numericInput("n", "n", value = 0, min = 0, max = 100)
+    }
+  })
+}
+shinyApp(ui, server)
+```
+
+Solución con tabPanel():
+
+Me costó ver que tenía que darle diferente inputID y hacer dos isolate()´s
+
+```{r, eval=FALSE}
+ui <- fluidPage(
+    selectInput("type", "type", c("slider", "numeric")),
+    tabsetPanel(
+        id = "switcher",  
+        type = "hidden",  
+        tabPanel("slider",
+                 sliderInput("n_slider", "n", value = 0, min = 0, max = 100)),
+        tabPanel("numeric",
+                 numericInput("n_numeric", "n", value = 0, min = 0, max = 100) 
+        )
+      )
+  # uiOutput("numeric")
+)
+server <- function(input, output, session) {
+    observeEvent(input$type, {
+        current_val_slider <- isolate(input[["n_slider"]]) # Preserva valor
+        current_val_numeric <- isolate(input[["n_numeric"]]) # Preserva valor
+        updateTabsetPanel(session, inputId = "switcher", selected = input$type)
+        if(input$type == "slider"){
+            updateSliderInput(session,inputId = "n_slider", "n", value = current_val_numeric %||% 0)
+        }else{
+            updateNumericInput(session,inputId = "n_numeric", "n", value = current_val_slider %||% 0)
+        }
+  })
+  
+}
+shinyApp(ui, server)
+
+
+```
+
+o con TabPanelBody() también funcionaría (aquí no implemento isolate()):
+```{r, eval=FALSE}
+ui <- fluidPage(
+    selectInput("type", "type", c("slider", "numeric")),
+    tabsetPanel(
+        id = "switcher",  
+        type = "hidden",  
+        tabPanelBody("slider",
+                 sliderInput("n", "n", value = 0, min = 0, max = 100)),
+        tabPanelBody("numeric",
+                 numericInput("n", "n", value = 0, min = 0, max = 100) 
+        )
+      )
+  # uiOutput("numeric")
+)
+server <- function(input, output, session) {
+    observeEvent(input$type, {
+        updateTabsetPanel(session, inputId = "switcher", selected = input$type)
+  })
+  
+}
+shinyApp(ui, server)
+
+
+```
+
+------------------------------------------------------------------------
+
+2.  **Contraseña Modal:** Explicado en la diapositiva anterior.
+
+------------------------------------------------------------------------
+
+3.  **`isolate()`:** ¿Qué pasa si se quita `isolate()` en el ejemplo de `renderUI` que preserva estado? (Respuesta: value quedaría en NA, debería usar %||% 0 para no darle un NA al value de slider, por eso da error "Error: In sliderInput(): `min`, `max`, and `value` cannot be NULL, NA, or empty."). Habría esperado que entrara en un loop infinito. Podemos ver en el código de abajo diferentes situaciones... siempre que use el null coalescing operator funcionará.
+
+```{r ejemplo_completo_swatch_ejercicio}
+#| eval: false
+#| include: false
+
+ui <- fluidPage(
+  textInput("label", "label"),
+  selectInput("type", "type", c("slider", "numeric")),
+  uiOutput("numeric")
+)
+
+server <- function(input, output, session) {
+  output$numeric <- renderUI({
+    # value <- input$dynamic
+    # value <- isolate(input$dynamic)
+    value <- isolate(input$dynamic) %||% 0
+    # value <- input$dynamic %||% 0
+    
+    # if(is.na(value))print("value es NA")
+    # if(is.null(value))print("value es NULL")
+    # print(value)
+    if (input$type == "slider") {
+      sliderInput("dynamic", input$label, value = value, min = 0, max = 10)
+    } else {
+      numericInput("dynamic", input$label, value = value, min = 0, max = 10)
+    }
+  })
+}
+
+shinyApp(ui, server)
+
+```
+
+------------------------------------------------------------------------
+
+4.  **Soporte Fechas:** Extender `make_ui` y `filter_var` para manejar columnas `Date` y `POSIXct`.
+
+```{r dynamic-filter-app_ejercicio, eval=FALSE}
+#| echo: true
+#| RStudio-View: Showcase
+#| code-line-numbers: "false"
+
+library(purrr)
+library(dplyr)
+
+# Helper para crear UI por tipo de variable (recibe un vector y un nombre)
+make_ui <- function(x, var) {
+  if (is.numeric(x)|inherits(x, "Date")| inherits(x, "POSIXct")) {
+    rng <- range(x, na.rm = TRUE)
+    sliderInput(var, var, min = rng[1], max = rng[2], value = rng)
+  } else if (is.factor(x)) {
+    levs <- levels(x)
+    selectInput(var, var, choices = levs, selected = levs, multiple = TRUE)
+  } else {
+    # Otros tipos no soportados -> no genera control
+    NULL 
+  }
+}
+
+# Helper para filtrar datos basado en el input (recibe un vector y el rango de
+# valores que ingreso el usuario en el input generado). Devuelve un vector 
+# lógico, que luego podrá operarse lógicamente con los de las otras variables 
+filter_var <- function(x, val) {
+    
+    # sugerencia copilot:
+      # Si aún no existe el input, no filtro nada:
+  if (is.null(val)) return(rep(TRUE, length(x)))
+
+  if (is.numeric(x)|inherits(x, "Date")| inherits(x, "POSIXct")) {
+    !is.na(x) & x >= val[1] & x <= val[2]
+  } else if (is.factor(x)) {
+    x %in% val # Si es NULL (aún no existe input), esto da TRUE para todos (ok)
+  } else {
+    TRUE # No filtrar si no hay control
+  }
+}
+
+# Lista de data frames en 'datasets'
+dfs <- keep(ls("package:datasets"), ~ is.data.frame(get(.x, "package:datasets")))
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("dataset", label = "Dataset", choices = dfs),
+      uiOutput("filter") # Lugar para los controles de filtro
+    ),
+    mainPanel(
+      tableOutput("data")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # Datos seleccionados
+  data <- reactive({
+    req(input$dataset) # nos aseguramos que input$dataset sea truthy (que no sea FALSE, NULL,"", etc)
+    get(input$dataset, "package:datasets") # devuelve el objeto que tiene el nombre input$dataset
+  })
+  
+  # Nombres de variables del dataset
+  vars <- reactive(names(data())) # necesitaremos un vector de nombres (lo que es usual en programación funcional)
+  
+  # Genera los controles de filtro en la UI
+  output$filter <- renderUI({
+      # data()[[.x]] es la forma de conseguir el vector desde el reactivo de los nombres: vars()
+      # .x es la forma de conseguir el nombre desde vars()
+    # sugerencia de Copilot:
+      # - Envuelve la lista de controles que te devuelve map() en un tagList(). Si devuelves una lista cruda, Shiny tampoco sabe cómo pegarla en la UI, y genera abortos en renderUI.
+
+      # map(vars(), ~ make_ui(data()[[.x]], .x)) # con los vectores y los nombres genera los input
+        ui_elems <- map(vars(), ~ make_ui(data()[[.x]], .x))
+  do.call(tagList, ui_elems)
+
+  })
+  
+  # Lógica de filtrado combinada (selected() es un reactivo que devuelve un vector lógico)
+  selected <- reactive({
+    # Aplica filter_var a cada variable/input correspondiente
+    each_var <- map(vars(), ~ filter_var(data()[[.x]], input[[.x]])) # 
+    # Combina todos los vectores lógicos con &, o sea con la operación logical1 & logical2 & logical3
+      # reduce(list(TRUE, TRUE, TRUE), `&`) # que es como (TRUE & TRUE) & TRUE
+      # [1] TRUE
+      # reduce(list(TRUE, TRUE, FALSE), `&`)
+      # [1] FALSE
+    reduce(each_var, `&`)
+    # Alternativa base R: Reduce(`&`, each_var)
+  })
+  
+  # Muestra la tabla filtrada
+  output$data <- renderTable({
+    req(selected()) # Espera a que el filtro esté listo
+    head(data()[selected(), , drop = FALSE], 12) # drop=FALSE por si queda 1 col, que no intente convertirlo en un vector (ver el parámetro drop en la ayuda de ?`[`)
+  })
+}
+
+shinyApp(ui, server)
+```
+
+------------------------------------------------------------------------
+
+5.  **(Avanzado S3):** Reemplazar `if/else` en `make_ui`/`filter_var` con métodos S3.
+
+Ventajas de usar S3:
+Modularidad y escalabilidad: Al separar la lógica en métodos S3 específicos para cada tipo de dato, la solución se vuelve mucho más modular. Si se requiere dar soporte a nuevos tipos (por ejemplo, Date o POSIXct), bastaría con agregar nuevas definiciones make_ui.<tipo> y filter_var.<tipo> sin alterar la estructura general.
+
+Legibilidad y mantenimiento: La eliminación de múltiples condicionales dentro de una única función ayuda a que el código sea más claro y fácil de mantener. Cada método se encarga de una tarea concreta y puede probarse de forma independiente.
+
+Extensibilidad: Por ejemplo, pude haberse añadido un método para datos character que convierta la variable a factor (como se mostró) o bien que presente un control de búsqueda. Además, el método por defecto en filter_var.default() garantiza que si se encuentra con un tipo no soportado, la fila se incluye sin filtrar—permitiendo que la función siga operando sin lanzar errores.
+
+Aplicación en UI dinámica: En el ejemplo de Shiny, se genera la interfaz de forma dinámica recorriendo las columnas del dataset. Esto permite que, al cambiar los datos o al usar distintos datasets, la UI se adapte automáticamente sin necesidad de código adicional.
+
+```{r, eval=FALSE}
+library(purrr)
+library(dplyr)
+
+# Funciones genéricas para crear controles de UI según el tipo de dato
+
+# Definición de la función genérica make_ui
+make_ui <- function(x, var) {
+  UseMethod("make_ui", x)
+}
+
+# Para datos numéricos: se crea un sliderInput utilizando el rango de los datos.
+make_ui.numeric <- function(x, var) {
+  rng <- range(x, na.rm = TRUE)
+  # Verifica que el rango sea válido
+  if(any(is.infinite(rng)) || any(is.na(rng))) {
+    return(NULL)
+  }
+  sliderInput(
+    inputId = var,
+    label   = var,
+    min     = rng[1],
+    max     = rng[2],
+    value   = rng
+  )
+}
+
+# Para datos de tipo factor: se genera un selectInput con selección múltiple.
+make_ui.factor <- function(x, var) {
+  levs <- levels(x)
+  if(is.null(levs)) return(NULL)
+  selectInput(
+    inputId  = var,
+    label    = var,
+    choices  = levs,
+    selected = levs,
+    multiple = TRUE
+  )
+}
+
+# Para datos de tipo character. Se puede tratar los caracteres convirtiéndolos a factor,
+# o bien se puede definir un control específico. Aquí optamos por convertir y reutilizar la lógica de factor.
+make_ui.character <- function(x, var) {
+  x <- as.factor(x)
+  make_ui.factor(x, var)
+}
+
+# Método por defecto: en caso de no soportar el tipo de dato, no se genera ningún control.
+make_ui.default <- function(x, var) {
+  NULL
+}
+
+
+# Funciones genéricas para filtrar datos según el control generado
+
+# Definición de la función genérica filter_var
+filter_var <- function(x, val) {
+  UseMethod("filter_var", x)
+}
+
+# Para datos numéricos: se espera que 'val' sea un vector de longitud 2 (mínimo y máximo)
+filter_var.numeric <- function(x, val) {
+  !is.na(x) & x >= val[1] & x <= val[2]
+}
+
+# Para datos tipo factor: el filtrado consiste en comprobar si el valor de x está en la selección val.
+filter_var.factor <- function(x, val) {
+  x %in% val
+}
+
+# Para datos tipo character: se puede aplicar una lógica similar a la de factor.
+filter_var.character <- function(x, val) {
+  x %in% val
+}
+
+# Método por defecto: si el tipo no tiene un control asociado, no se aplica filtrado
+filter_var.default <- function(x, val) {
+  rep(TRUE, length(x))
+}
+
+
+# Lista de data frames en 'datasets'
+dfs <- keep(ls("package:datasets"), ~ is.data.frame(get(.x, "package:datasets")))
+
+ui <- fluidPage(
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("dataset", label = "Dataset", choices = dfs),
+      uiOutput("filter") # Lugar para los controles de filtro
+    ),
+    mainPanel(
+      tableOutput("data")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # Datos seleccionados
+  data <- reactive({
+    req(input$dataset) # nos aseguramos que input$dataset sea truthy (que no sea FALSE, NULL,"", etc)
+    get(input$dataset, "package:datasets") # devuelve el objeto que tiene el nombre input$dataset
+  })
+  
+  # Nombres de variables del dataset
+  vars <- reactive(names(data())) # necesitaremos un vector de nombres (lo que es usual en programación funcional)
+  
+  # Genera los controles de filtro en la UI
+  output$filter <- renderUI({
+      # data()[[.x]] es la forma de conseguir el vector desde el reactivo de los nombres: vars()
+      # .x es la forma de conseguir el nombre desde vars()
+    map(vars(), ~ make_ui(data()[[.x]], .x)) # con los vectores y los nombres genera los input
+  })
+  
+  # Lógica de filtrado combinada (selected() es un reactivo que devuelve un vector lógico)
+  selected <- reactive({
+    # Aplica filter_var a cada variable/input correspondiente
+    each_var <- map(vars(), ~ filter_var(data()[[.x]], input[[.x]])) # 
+    # Combina todos los vectores lógicos con &, o sea con la operación logical1 & logical2 & logical3
+      # reduce(list(TRUE, TRUE, TRUE), `&`) # que es como (TRUE & TRUE) & TRUE
+      # [1] TRUE
+      # reduce(list(TRUE, TRUE, FALSE), `&`)
+      # [1] FALSE
+    reduce(each_var, `&`)
+    # Alternativa base R: Reduce(`&`, each_var)
+  })
+  
+  # Muestra la tabla filtrada
+  output$data <- renderTable({
+    req(selected()) # Espera a que el filtro esté listo
+    head(data()[selected(), , drop = FALSE], 12) # drop=FALSE por si queda 1 col, que no intente convertirlo en un vector (ver el parámetro drop en la ayuda de ?`[`)
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+::: notes
+Finalmente, algunos ejercicios para `renderUI` y conceptos avanzados:
+
+1.  **Alternativa a `renderUI`:** Intenten reimplementar el primer ejemplo de `renderUI` (el slider/numeric input dinámico) usando `conditionalPanel` o un `tabsetPanel` oculto. Piensen en cómo asegurar que el valor del input se mantenga sincronizado entre el slider y el numeric input cuando se cambian.
+
+2.  **Contraseña Modal:** El ejercicio del libro profundiza en el comportamiento de la contraseña del modal. Les invito a explorar el porqué la contraseña "desaparece" visualmente y cómo podrían mantenerla si fuera necesario (aunque no siempre es deseable por seguridad).
+
+3.  **`isolate()`:** Este es clave para entender la reactividad. Quiten `isolate()` del ejemplo de `renderUI` que preserva el estado y observen qué sucede. Verán cómo se crea un bucle reactivo, ya que el `renderUI` se dispararía continuamente cada vez que el valor del input generado cambiara, intentando re-renderizarlo, lo que lo volvería a cambiar, y así sucesivamente.
+
+4.  **Soporte Fechas:** Extiendan las funciones `make_ui` y `filter_var` de nuestro ejemplo de filtrado dinámico para que también puedan manejar columnas de tipo `Date` o `POSIXct` (fecha y hora), probablemente utilizando `dateRangeInput`.
+
+5.  **Avanzado S3:** Para aquellos con conocimientos de programación orientada a objetos en R, un desafío es reemplazar las sentencias `if/else` dentro de `make_ui` y `filter_var` por un sistema de métodos S3, lo que haría el código más extensible para nuevos tipos de columna.
+
+Espero que estos ejercicios les permitan profundizar en el uso de estas herramientas.
+:::
+
+------------------------------------------------------------------------
+
+## Resumen: UI Dinámica
+
+Hemos visto tres formas de hacer la UI más interactiva:
+
+1.  **`update*Input()`:** Modificar controles existentes. Ideal para cambios simples (valor, etiqueta, opciones, rango).
+2.  **`tabsetPanel(type = "hidden")` + `updateTabsetPanel()`:** Mostrar/ocultar secciones predefinidas. Bueno para UI condicional o wizards.
+3.  **`renderUI()` + `uiOutput()`:** Generar UI arbitraria desde el servidor. Máxima flexibilidad, pero más complejo y puede tener latencia. Requiere cuidado para preservar estado (`isolate`).
+
+**Recordatorio:** ¡La UI dinámica añade complejidad! - Usa la técnica más simple posible. - Cuidado con referencias circulares y estado transitorio (`freezeReactiveValue`). - La programación funcional (`map`, `reduce`) es muy útil para generar UI compleja.
+
+::: notes
+Para cerrar, recapitulemos las tres técnicas clave para la UI dinámica que hemos explorado hoy:
+
+1.  **`update*Input()`:** Esta es su herramienta de referencia para modificaciones menores en controles de entrada ya existentes. Es ideal para cambiar un valor, una etiqueta, las opciones disponibles o el rango de un slider. Es la más sencilla y directa.
+
+2.  **`tabsetPanel(type = "hidden")` junto con `updateTabsetPanel()`:** Esta técnica es fantástica para mostrar u ocultar grandes bloques de UI que ya están predefinidos. Es perfecta para UIs condicionales (como mostrar parámetros de distribución específicos) o para construir interfaces de asistente paso a paso.
+
+3.  **`renderUI()` y `uiOutput()`:** Cuando necesitan la máxima flexibilidad, esta es la técnica a usar. Les permite generar cualquier tipo y número de componentes de UI directamente desde el servidor. Es la más potente, pero también la más compleja y puede introducir latencia. Requiere especial atención para preservar el estado del usuario usando `isolate()`.
+
+Como recordatorio final, aunque la UI dinámica es increíblemente poderosa y es lo que realmente da vida a nuestras aplicaciones Shiny, siempre recuerden que añade complejidad. - Siempre opten por la técnica más simple que resuelva su problema. - Sean extremadamente cuidadosos con las referencias circulares y gestionen el estado transitorio con herramientas como `freezeReactiveValue()`. - Y no subestimen el poder de la programación funcional con paquetes como `purrr` para generar y gestionar UIs complejas de manera concisa.
+
+¡Muchas gracias por su atención! Espero que esta presentación les haya dado las herramientas y la confianza para crear aplicaciones Shiny aún más dinámicas y robustas. ¿Hay alguna pregunta?
+:::
+
+# Muchas Gracias {.text-center}
+
+
+:::footnote
+Por la paciencia y por el apoyo 🤗
+:::
