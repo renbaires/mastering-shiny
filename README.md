@@ -49,7 +49,7 @@ Hay aproximadamente tres tipos de compromiso con el club de lectura y los tres s
 | #7 | 2025-06-11  | Dynamic UI (capítulo 10) | Mauro Crosignani | [Materiales](https://github.com/RLadies-BA/mastering-shiny/tree/main/2025-06-11_Encuentro7)| Link disponible posterior al encuentro |
 | #8 | 2025-06-25  | Tidy evaluations (Capítulo 12) | [Jesica Formoso](https://github.com/JFormoso) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 | #9 | 2025-07-16  | Why reactivity?, The reactive graph y Reactive building blocks (capítulos 13 a 15) | Laura Misiani | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
-| #10 | 2025-07-30  | Functions y Shiny modules (capítulos 18 y 19) | **A confirmar** | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
+| #10 | 2025-07-30  | Functions y Shiny modules (capítulos 18 y 19) | [Andrea Gomez Vargas](https://github.com/SoyAndrea/) | [Repositorio](https://github.com/RLadies-BA/mastering-shiny)| Link disponible posterior al encuentro |
 
 
 
