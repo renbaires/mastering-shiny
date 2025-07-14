@@ -1,0 +1,71 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"CAPITULO 9\"\n",
+        "subtitle: \"Uploads and Downloads\"\n",
+        "author: \"Club de Lectura Mastering Shiny - R Ladies\"\n",
+        "format: revealjs\n",
+        "editor: visual\n",
+        "format:\n",
+        "  revealjs:\n",
+        "    scrollable: true  # Opcional: permite el desplazamiento de contenido\n",
+        "    smaller: true      # Opcional: reduce el tamaño de fuente\n",
+        "---\n",
+        "\n",
+        "```{css, echo = FALSE}\n",
+        ".justify {\n",
+        "  text-align: justify !important\n",
+        "}\n",
+        "```\n",
+        "\n",
+        "\n",
+        "## Presentación\n",
+        "\n",
+        "::: justify\n",
+        "En el Capítulo 9 el autor explica como lxs usuarixs de una App pueden interactuar con ella, subiendo o descargando diferentes tipos de archivos.\n",
+        "\n",
+        "Esta posibilidad habilita una interacción mucho más amplia con la App, permitiendo obtener un insumo de parte de quien la esta usando, asi como brindarle la opción de descargar información de la misma.\n",
+        "\n",
+        "A continuación veremos más en detalle de que se trata:\n",
+        ":::\n",
+        "\n",
+        "## UPLOADS: la UI\n",
+        "\n",
+        "La función para subir un archivo es fileInput() y tiene dos componentes indispensables: id y label.\n",
+        "\n",
+        "fileInput(\"Id\", \"Label\")\n",
+        "\n",
+        "Podemos incorporar otros [argumentos complementarios](https://rdrr.io/cran/shiny/man/fileInput.html) para definir más detalles, tales como multiple, accept, width, entre otros.\n",
+        "\n",
+        "## UPLOADS: el SERVER\n",
+        "\n",
+        "La función fileInput() utilizada en la UI devuelve un dataframe de cuatro columnas:\n",
+        "\n",
+        "name: el nombre del archivo original en la computadora de quien lo sube;\n",
+        "\n",
+        "size: tamaño del archivo en bytes. Por defecto el límite son 5MB si bien se puede incrementar mediante la opción options shiny.maxRequestSize al comienzo de Shiny. Ej options(shiny.maxRequestSize = 10 * 1024^2).\n",
+        "\n",
+        "type: el tipo de archivo;\n",
+        "\n",
+        "datapath: el path donde la data se guarda en el server. El path es efímero, y si un archivo nuevo se sube, el anterior se borra. \n",
+        "\n",
+        "#UPLOAD: Un ejemplo\n"
+      ],
+      "id": "352a8ca3"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "C:\\Users\\Usuario\\AppData\\Local\\Programs\\Python\\Python311\\share\\jupyter\\kernels\\python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
