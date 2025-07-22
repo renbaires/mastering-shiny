@@ -1,0 +1,224 @@
+---
+title: "CAPITULO 9"
+subtitle: "Uploads and Downloads"
+author: "Club de Lectura Mastering Shiny - R Ladies"
+format:
+   revealjs:
+    smaller: true
+    scrollable: true
+    theme: moon
+editor: visual
+#theme: blood
+---
+
+## Presentación
+
+::: justify
+En el Capítulo 9 el autor explica como lxs usuarixs de una App pueden interactuar con ella, **subiendo** o **descargando** diferentes tipos de archivos.
+
+Esta posibilidad habilita una interacción mucho más amplia con la App, permitiendo obtener un insumo de parte de quien la esta usando, asi como brindarle la opción de descargar información de la misma.
+
+A continuación veremos más en detalle de que se trata:
+:::
+
+## UPLOADS: La UI
+
+La función para subir un archivo es fileInput() y tiene dos componentes indispensables: id y label.
+
+fileInput("Id", "Label")
+
+Podemos incorporar otros [argumentos complementarios](https://rdrr.io/cran/shiny/man/fileInput.html) para definir más detalles, tales como multiple, accept, width, entre otros.
+
+## UPLOADS: El Server {.smaller}
+
+La función fileInput() utilizada en la UI devuelve un dataframe de cuatro columnas:
+
+**name:** el nombre del archivo original en la computadora de quien lo sube;
+
+**size:** tamaño del archivo en bytes. Por defecto el límite son 5MB si bien se puede incrementar mediante la opción options shiny.maxRequestSize al comienzo de Shiny. Ej options(shiny.maxRequestSize = 10 \* 1024\^2).
+
+**type:** el tipo de archivo;
+
+**datapath:** el path donde la data se guarda en el server. El path es efímero, y si un archivo nuevo se sube, el anterior se borra.
+
+## UPLOAD: Un ejemplo
+
+App para subir archivo, con un Output que permite ver las columnas del fileInput()
+
+Se utilizan las opciones **buttonLabel** -agrega el boton para cargar- y **multiple** -permite cargar varios archivos-
+
+![](imag1.png){fig-align="center"}
+
+El resultado del código: <https://hadley.shinyapps.io/ms-upload/>
+
+## UPLOADS: Cargando DATASETS
+
+Tenemos que tener en cuenta:
+
+::::: columns
+::: {.column width="50%"}
+En la UI la opción **accept** indica los tipos de archivos que se permiten cargar.
+:::
+
+::: {.column width="50%"}
+![](imag3a.png){fig-align="center"}
+:::
+:::::
+
+::::: columns
+::: {.column width="50%"}
+En el Server incorpora un **req(input\$upload)** para asegurarnos que el código espera hasta que se cargue el primer archivo.
+
+Resultado del código: <https://hadley.shinyapps.io/ms-upload-validate>.
+
+Aclaración: `file_ext`Devuelve las extensiones de archivo
+:::
+
+::: {.column width="50%"}
+![](imag3b.png){fig-align="center"}
+:::
+:::::
+
+::: notes
+No me queda claro como se guardan los archivos que se cargan. Donde quedan?
+:::
+
+## DOWNLOADS: la UI
+
+Se presentan dos opciones para operacionalizar las descargas:
+
+-   downloadButton(id)
+
+-   downloadLink(id)
+
+Al igual que en los actionButtons() podemos incorporar argumentos extra para personalizar su apriencia como class o icon tal como vimos en el [Capítulo 2](https://mastering-shiny.org/basic-ui.html#action-buttons)
+
+![](imag4.png){fig-align="center"}
+
+## DOWNLOADS: El Server
+
+::::: columns
+::: {.column width="50%"}
+El downloadButton() no tiene su propio render. Para ello utilizamos downloadHandler(), cuyos argumentos principales son:
+
+**filename:** es una función sin argumentos cuyo objetivo es crear el nombre que se mostrará al usuario en el cuadro de dialogo de descarga;
+
+**content:** es una función con un argumento -**file**- que es el path para guardar el archivo que será enviado al usuarix.
+:::
+
+::: {.column width="50%"}
+![](imag5.png){fig-align="center"}
+:::
+:::::
+
+## DOWNLOADS: Datasets
+
+El código que se muestra a continuación permite crear la [App](https://hadley.shinyapps.io/ms-download-data.) para descargar un dataset del paquete package.
+
+::::: columns
+::: {.column width="50%"}
+![](imag6.png)
+:::
+
+::: {.column width="50%"}
+La incorporación de [`validate()`](https://rdrr.io/pkg/shiny/man/validate.html) solo habilita la descarga de archivos que sean dataframes.
+:::
+:::::
+
+## DOWNLOADS: Ejemplo
+
+Les comparto una [App](https://grabel.shinyapps.io/MERCLAByGEN/) que arme para analizar las diferencias de género existentes en el Mercado de Trabajo de Argentina y que permite descargar las tablas teniendo en cuenta los filtros aplicados:
+
+::::: columns
+::: {.column width="65%"}
+![](imagEj1.png)
+:::
+
+::: {.column width="35%"}
+![](imagEj2.png)
+:::
+:::::
+
+## DOWNLOADS: Reportes
+
+:::::: columns
+:::: {.column width="50%"}
+::: columns
+Una posibilidad es descargar un reporte que surge de la interacción con la App. Esto puede lograrse mediante un documento RMarkdown, especificamente a través del parámetro **params** en el YAML.
+:::
+::::
+
+::: {.column width="50%"}
+![](imag7.png)
+:::
+::::::
+
+Luego hacemos referencia a los parámetros desde params\$year, params\$region, etc. Asimismo podemos cambiar el formato en el que se descarga.
+
+En el **downloadHander()**, mediante el argumento content llamamos a rmarkdown::render().
+
+------------------------------------------------------------------------
+
+El siguiente código nos muestra el ejemplo de [App](https://hadley.shinyapps.io/ms-download-rmd) para descargar el reporte de nuestra interacción en ella.
+
+![](imag8.png)
+
+## DOWNLOADS: tips importantes
+
+::::: columns
+::: {.column width="35%"}
+1 - RMarkdown corre desde el directorio de trabajo actual y esto puede fallar en algunos entornos (por ej shinyapps.io). Una solución es copiar el informe a un directorio temporal al comienzo de la Shiny (fuera del server) y luego reemplazar report.Rmd con report_path en [`rmarkdown::render()`](https://pkgs.rstudio.com/rmarkdown/reference/render.html)
+
+2 - Para hacer el proceso más robusto, se recomienda correr render() en una sesión separada a traves del paquete callr
+:::
+
+::: {.column width="65%"}
+![](imag8f.png)
+:::
+:::::
+
+## CASO DE ESTUDIO: La UI
+
+Creación de una [App](https://hadley.shinyapps.io/ms-case-study/) que permite subir un archivo, transformarlo y descargarlo. Para su mejor organización se crean tres UI para cada una de esas tareas y se ensamblan al final.
+
+::::: columns
+::: {.column width="50%"}
+![](imag9a.png)
+:::
+
+::: {.column width="50%"}
+![](imag9b.png){fig-alt="2. Limpieza"}
+:::
+:::::
+
+::::: columns
+::: {.column width="70%"}
+![](imag9c.png)
+:::
+
+::: {.column width="30%"}
+![](imag9d.png)
+:::
+:::::
+
+## CASO DE ESTUDIO: El Server
+
+La división por tareas permite al mismo tiempo organizar mejor el Server:
+
+::::: columns
+::: {.column width="50%"}
+![](imag10.png)
+:::
+
+::: {.column width="50%"}
+![](imag10bis.png)
+:::
+:::::
+
+## EJERCICIOS
+
+1.  Usar el paquete [ambient](https://ambient.data-imaginist.com/) para generar [worley noise](https://ambient.data-imaginist.com/reference/noise_worley.html) y descargar una PNG.
+2.  Crear una App que permita cargar un archivo csv y seleccionar una variable para calcular una [`t.test()`](https://rdrr.io/r/stats/t.test.html) Necesitamos usar [`updateSelectInput()`](https://rdrr.io/pkg/shiny/man/updateSelectInput.html) para que la selección de variables se ejecute luego de que se carga el archivo.
+3.  Crear una App que permita cargar un csv, seleccionar una variable, dibujar el histograma y descargarlo. Solicita que se pueda elegir en que formato descargarlo, dando las opciones `.png`, `.pdf` y `.svg.`
+4.  Crear una App que permite crear un mosaico Lego de un archivo `.png` a partir del paquete [brickr](https://github.com/ryantimpe/brickr). Agregar controles que permitan al usuario seleccionar el tamaño del mosaico y elegir si usar colores de paleta “universal” o “generic”.
+5.  Dividir el código de la App del caso de estudio presentado de forma tal que `janitor::make_clean_names()` no se corre nuevamente ante cambios de `input$empty`.

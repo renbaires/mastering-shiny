@@ -1,0 +1,796 @@
+---
+title: "Mastering Shiny. Capítulos 13, 14 y 15"
+output:
+  html_document:
+    toc: true          
+    toc_depth: 2       
+    number_sections: true  
+---
+
+#CAPÍTULO 13: ¿Por qué reactividad?
+
+##13.2.1¿Por qué no se pueden utilizar variables?
+```{r}
+temp_c<-10
+temp_f<- (temp_c*9/5) +32
+temp_f
+
+
+#Cambiamos el valor de temp_c pero no volvemos a calcular temp_f
+temp_c <- 12
+temp_f
+
+```
+
+##13.2.2¿Qué pasa con las funciones?
+
+```{r}
+temp_c <- 10
+temp_f <- function() {
+message("Converting")
+(temp_c * 9 / 5) + 32
+}
+temp_f()
+```
+```{r}
+temp_c <- -3
+temp_f()
+```
+
+##13.2.3Programación basada en eventos (Event-driven programming)
+
+```{r}
+# Creamos una clase llamada DynamicValue usando R6.
+# Esta clase sirve para guardar un valor y una función que se ejecuta cuando ese valor cambia.
+DynamicValue <- R6::R6Class("DynamicValue", list(
+  value = NULL,         # donde se guarda el valor actual
+  on_update = NULL,     # función que se dispara cuando se actualiza el valor
+  
+  # Método para obtener el valor
+  get = function() self$value,
+  
+  # Método para cambiar el valor. Si hay una función registrada en on_update,
+  # se ejecuta cuando se cambia el valor.
+  set = function(value) {
+    self$value <- value
+    if (!is.null(self$on_update))
+      self$on_update(value)
+    invisible(self)
+  },
+  
+  # Método para registrar una función que se ejecuta cuando cambia el valor
+  onUpdate = function(on_update) {
+    self$on_update <- on_update
+    invisible(self)
+  }
+))
+
+
+```
+
+```{r}
+# Creamos un objeto temp_c que va a ser un valor "dinámico"
+temp_c <- DynamicValue$new()
+
+# Registramos una función que se va a ejecutar automáticamente cada vez que cambiemos temp_c
+# Esa función va a actualizar temp_f haciendo la conversión a Fahrenheit
+temp_c$onUpdate(function(value) {
+  message("Converting")
+  temp_f <<- (value * 9 / 5) + 32
+})
+
+```
+
+```{r}
+# Cambiamos el valor de temp_c. Automáticamente se actualiza temp_f gracias a la función anterior
+temp_c$set(10)
+temp_f
+```
+
+```{r}
+temp_c$set(-3)
+temp_f
+
+```
+
+##13.2.4Programación reactiva (Reactive programming)
+
+```{r}
+library(shiny)
+reactiveConsole(TRUE)   #hace posible experimentar en la consola
+```
+
+```{r}
+#inicializa el valor reactivo con temp_c = 10
+
+temp_c <- reactiveVal(10) # create
+temp_c() # get
+```
+
+```{r}
+#reactualiza el valor
+
+temp_c(20) # set
+temp_c() # get
+```
+
+```{r}
+#genera una expresión reactiva para calcular temp_f
+
+temp_f <- reactive({
+message("Converting")
+(temp_c() * 9 / 5) + 32
+})
+temp_f()
+```
+
+```{r}
+#Actualiza el valor de temp_c y de manera automática se actualiza temp_f
+
+temp_c(-3)
+temp_c(-10)
+temp_f()
+```
+
+```{r}
+#Al no haber nuevas actualizaciones de temp_c, temp_f no cambia pero tampoco se recalcula. 
+
+temp_f()
+```
+
+#CAPÍTULO 14: EL GRAFO REACTIVO
+
+##14.2Un recorrido paso a paso por la ejecución reactiva
+
+
+```{r}
+ui <- fluidPage(
+numericInput("a", "a", value = 10),
+numericInput("b", "b", value = 1),
+numericInput("c", "c", value = 1),
+plotOutput("x"),
+tableOutput("y"),
+textOutput("z")
+)
+server <- function(input, output, session) {
+rng <- reactive(input$a * 2)
+smp <- reactive(sample(rng(), input$b, replace = TRUE))
+bc <- reactive(input$b * input$c)
+output$x <- renderPlot(hist(smp()))
+output$y <- renderTable(max(smp()))
+output$z <- renderText(bc())
+}
+
+shinyApp(ui, server)
+```
+
+##14.4.5 Ejercicios
+
+###1
+
+```{r}
+# 1. Dibuje el gráfico reactivo para la siguiente función del servidor y luego explique por qué no se ejecutan los reactivos.
+
+server <- function(input, output, session) {
+sum <- reactive(input$x + input$y + input$z)
+prod <- reactive(input$x * input$y * input$z)
+division <- reactive(prod() / sum())
+}                               ## No hay salidas que shiny pueda activar, por eso no se ejecutan los reactivos
+
+
+```
+
+
+###2
+
+```{r}
+#2. El siguiente gráfico reactivo simula un cálculo de larga duración utilizando Sys.sleep(). 
+#¿Cuánto tiempo tardará el gráfico en recalcularse si x1 cambia? ¿Qué pasa con x2 o x3?
+
+x1 <- reactiveVal(1)
+x2 <- reactiveVal(2)
+x3 <- reactiveVal(3)
+y1 <- reactive({
+Sys.sleep(1)
+x1()
+})                         #y1 depende solo de x1                      
+y2 <- reactive({
+Sys.sleep(1)
+x2()
+})                        #y2 depende solo de x2                        
+y3 <- reactive({
+Sys.sleep(1)
+x2() + x3() + y2() + y2()
+})                        #y3 depende de x2, x3 y de y2              
+observe({
+print(y1())                   
+print(y2())                   
+print(y3())
+})
+
+#Si x1 cambia, entonces y1 tarda 1 seg
+#Si x2 cambia, entonces y2 e y3 se invalidan y tienen que recalcularse.  Tarda 2 seg
+#Si x3 cambia, entonces y3 tarda 1 seg
+```
+
+###3
+
+```{r}
+#3. ¿Qué sucede si intentas crear un gráfico reactivo con ciclos?
+
+x <- reactiveVal(1)
+y <- reactive(x() + y())
+observe({
+print(y())
+})
+
+
+#Rta: Shiny no puede evaluar y. Los nodos se conectan de forma acíclica. Este código rompe la reactividad. Podría arrojar un error, o crear un loop infinito. 
+
+```
+
+##14.5Dinamismo
+
+```{r}
+ui <- fluidPage(
+selectInput("choice", "A or B?", c("a", "b")),
+numericInput("a", "a", 0),
+numericInput("b", "b", 10),
+textOutput("out")
+)
+server <- function(input, output, session) {
+output$out <- renderText({
+if (input$choice == "a") {
+input$a
+} else {
+input$b
+}                   #el condicional lo hace más eficiente porque solo activa "a" o "b" según "choice"
+})
+}
+
+shinyApp(ui, server)
+```
+
+
+```{r}
+ui <- fluidPage(
+selectInput("choice", "A or B?", c("a", "b")),
+numericInput("a", "a", 0),
+numericInput("b", "b", 10),
+textOutput("out")
+)
+server <- function(input, output, session) {
+output$out <- renderText({
+a <- input$a
+b <- input$b
+if (input$choice == "a") {
+a
+} else {
+b
+}           #el output depende de las tres entradas (a, b y choice). Si choice cambia, se leen los tres
+})
+}
+shinyApp(ui, server)
+```
+
+##14.6 El paquete reactlog 
+
+```{r}
+install.packages("reactlog")
+
+```
+
+```{r}
+reactlog::reactlog_enable()
+
+ui <- fluidPage(
+selectInput("choice", "A or B?", c("a", "b")),
+numericInput("a", "a", 0),
+numericInput("b", "b", 10),
+textOutput("out")
+)
+server <- function(input, output, session) {
+output$out <- renderText({
+if (input$choice == "a") {
+input$a
+} else {
+input$b
+}                   
+})
+}
+
+shinyApp(ui, server)
+```
+
+```{r}
+shiny::reactlogShow()
+
+```
+
+#CAPÍTULO 15
+
+```{r}
+library(shiny)
+reactiveConsole(TRUE)
+```
+
+##15.1 Valores reactivos
+
+```{r}
+#reactiveVal()
+
+x <- reactiveVal(10)
+x() # get
+```
+
+```{r}
+x(20) # set
+x() # get
+```
+
+```{r}
+#reactiveValues()
+
+r <- reactiveValues(x = 10)
+r$x # get
+```
+
+```{r}
+r$x <- 20 # set
+r$x # get
+```
+```{r}
+#modificación de copia (copy-on-modify semantics)
+
+a1 <- a2 <- 10   # a1 y a2 tienen el mismo valor
+a2 <- 20         # cambia a2
+a1               # a1 no cambia
+
+```
+
+```{r}
+# semántica por referencia
+
+b1 <- b2 <- reactiveValues(x = 10)  # b1 y b2 tienen el mismo valor (reactivo)
+b1$x <- 20                          # b1 cambia
+b2$x                                # b2 cambia
+```
+##15.1.1Ejercicios
+
+###1
+```{r}
+#1. ¿Cuáles son las diferencias entre estas dos listas de valores reactivos? Compare la sintaxis para obtener y configurar valores reactivos individuales.
+
+l1 <- reactiveValues(a = 1, b = 2)
+l2 <- list(a = reactiveVal(1), b = reactiveVal(2))
+```
+
+```{r}
+#Obtener valores de l1
+
+l1$a
+l1$b
+```
+```{r}
+#Obtener valores de l2
+
+l2$a()
+l2$b()
+```
+```{r}
+#Modificar valores de l1
+
+l1$a <- 3
+
+l1$a
+l1$b
+
+```
+```{r}
+#Modificar valores de l2
+
+l2$a(3)
+
+l2$a()
+l2$b()
+```
+###2
+```{r}
+#2. Diseñe y realice un pequeño experimento para verificar que reactiveVal() también tiene semántica de referencia.
+
+
+a <- reactiveVal(10)
+b <- a    #Si cambio b, debería cambiar a
+b(99)
+a()       #a debería ser 99
+
+```
+##15.2 Expresiones reactivas
+
+```{r}
+r <- reactive(stop("Error occured at ", Sys.time(), call. = FALSE))
+r()
+```
+
+```{r}
+Sys.sleep(2)
+r()
+```
+
+##15.2.3Ejercicios
+
+###1
+```{r}
+#1. Utilice el paquete reactlog para observar un error que se propaga a través de los reactivos en la siguiente aplicación, confirmando que sigue las mismas reglas que la propagación de valores.
+
+options(shiny.reactlog = TRUE)
+
+
+reactlog::reactlog_enable()
+
+ui <- fluidPage(
+checkboxInput("error", "error?"),
+textOutput("result")
+)
+server <- function(input, output, session) {
+a <- reactive({
+if (input$error) {
+stop("Error!")
+} else {
+1
+}
+})
+b <- reactive(a() + 1)
+c <- reactive(b() + 1)
+output$result <- renderText(c())
+}
+
+shinyApp(ui, server)
+
+```
+
+```{r}
+shiny::reactlogShow()
+```
+
+###2
+```{r}
+#2. Modifique la aplicación anterior para usar req() en lugar de stop(). Verifique que los eventos se sigan propagando de la misma manera. ¿Qué sucede cuando se usa el argumento cancelOutput? 
+
+reactlog::reactlog_enable()
+
+ui <- fluidPage(
+checkboxInput("error", "error?"),
+textOutput("result")
+)
+server <- function(input, output, session) {
+a <- reactive({
+  req(!input$error, cancelOutput = TRUE)   
+  1
+})
+b <- reactive(a() + 1)
+c <- reactive(b() + 1)
+output$result <- renderText(c())
+}
+
+shinyApp(ui, server)
+
+#req() también genera una especie de error, pero no invalida la sesión
+#req(..., cancelOutput = TRUE), el output conserva su última visualización anterior
+#el grafo se comporta igual que en el primer caso: la interrupción se propaga, pero el resultado es distinto en pantalla.
+```
+
+```{r}
+shiny::reactlogShow()
+```
+
+##15.3 Observers y outputs
+
+```{r}
+y <- reactiveVal(10)
+observe({
+message("`y` is ", y())
+})
+```
+
+```{r}
+y(5)
+```
+
+```{r}
+y(4)
+```
+
+```{r}
+x <- reactiveVal(1)
+y <- observe({
+x()
+observe(print(x()))
+})
+```
+
+```{r}
+x(2)
+```
+
+```{r}
+x(3)
+```
+##15.4.1 Código de aislamiento: isolate()
+
+```{r}
+##NO CORRER ESTE BLOQUE (LOOP INFINITO)
+
+r <- reactiveValues(count = 0, x = 1)
+observe({
+r$x
+r$count <- r$count + 1
+})
+```
+
+```{r}
+r <- reactiveValues(count = 0, x = 1)
+class(r)  #muestra que r es un objeto reactivo 
+observe({
+r$x
+r$count <- isolate(r$count) + 1
+})
+```
+
+```{r}
+r$x <- 1
+r$x <- 2
+r$count
+```
+
+```{r}
+r$x <- 3
+r$count
+```
+##15.4.2 observeEvent() y eventReactive()
+
+
+```{r}
+observeEvent(r$x, {
+r$count <- r$count + 1
+})
+```
+
+##15.4.3 Ejercicios
+
+###a (con observeEvent)
+
+```{r}
+#1. Complete la aplicación a continuación con una función de server que actualice el out con el valor de x sólo cuando se presiona el botón.
+
+#reactlog::reactlog_enable()    #para ver el grafo
+
+ui <- fluidPage(
+numericInput("x", "x", value = 50, min = 0, max = 100),
+actionButton("capture", "capture"),
+textOutput("out")
+)
+server <- function(input, output, session) {
+  observeEvent(input$capture, {
+    output$out <- renderText(input$x)
+  })
+}
+
+shinyApp(ui, server)
+
+
+#Shiny crea el output$out la primera vez que se ejecuta el observeEvent(), pero después lo mantiene como un nodo reactivo. Eso significa que output$out queda reactivo al input$x, aunque no vuelva a ejecutarse el handler del botón.
+
+```
+
+```{r}
+#shiny::reactlogShow()
+```
+
+
+
+###b (con observeEvent + isolate)
+```{r}
+#reactlog::reactlog_enable()
+
+ui <- fluidPage(
+numericInput("x", "x", value = 50, min = 0, max = 100),
+actionButton("capture", "capture"),
+textOutput("out")
+)
+server <- function(input, output, session) {
+  observeEvent(input$capture, {
+  output$out <- renderText({
+    isolate(input$x)   #agregamos isolate() 
+  })
+})
+}
+
+shinyApp(ui, server)
+
+#Con isolate(), el valor de input$x se captura en el momento del click, sin generar dependencia futura.
+
+
+```
+
+```{r}
+#shiny::reactlogShow()
+```
+
+
+
+###c (con eventReactive)
+
+```{r}
+
+#reactlog::reactlog_enable()
+
+ui <- fluidPage(
+numericInput("x", "x", value = 50, min = 0, max = 100),
+actionButton("capture", "capture"),
+textOutput("out")
+)
+server <- function(input, output, session) {
+  valor <- eventReactive(input$capture, {
+    input$x
+  })
+  
+  output$out <- renderText(valor())
+}
+
+shinyApp(ui, server)
+
+#eventReactive() ya incorpora isolate() internamente lo que evita reactividad no deseada.
+```
+
+```{r}
+#shiny::reactlogShow()
+```
+
+
+##15.5 invalidateLater()
+
+```{r}
+x <- reactive({
+invalidateLater(500)
+rnorm(10)   # se actualiza la lista de numéros aleatorios cada 500 ms
+})
+```
+
+
+```{r}
+# Este ejemplo muestra cómo usar invalidateLater() con isolate()
+# para acumular valores sin generar un bucle infinito.
+
+
+sum <- reactiveVal(0)      #valor acumulado
+observe({
+invalidateLater(300)
+sum(isolate(sum()) + runif(1)) #lee el valor actual SIN crear una dependencia. Eso evita que el observador se reactive por leer sum()
+})
+
+
+#Si se escribiera así: sum(sum() + runif(1))
+#el observador tomaría una dependencia de lectura sobre sum(), y como también lo modifica, se re-ejecutaría sin parar. Eso genera un bucle infinito reactivo
+
+```
+
+##15.5.1 Polling
+
+```{r}
+#Ejemplo sin usar polling (el archivo se reactualiza cada 1000 ms aunque nada haya cambiado)
+
+data <- reactive({
+on.exit(invalidateLater(1000))
+read.csv("data.csv")
+})
+```
+
+```{r}
+#Uso de polling
+
+server <- function(input, output, session) {
+data <- reactivePoll(1000, session,
+function() file.mtime("data.csv"),    #chequea cada 1000 ms si hubo cambios
+function() read.csv("data.csv")       #actualiza si hubo cambios
+)
+}
+
+#reactivePoll combina las dos funciones y conecta con el grafo
+```
+
+```{r}
+#reactiveFileReader hace lo mismo que el ejemplo anterior pero sin usar las funciones (es más directo)
+
+server <- function(input, output, session) {
+data <- reactiveFileReader(1000, session, "data.csv", read.csv)
+}
+```
+
+##15.5.2Reactivos de larga duración
+
+```{r}
+#Si el cálculo tardara más que el tiempo de espera, se entra en un loop infinito
+
+x <- reactive({
+invalidateLater(500)
+Sys.sleep(1)
+10
+})
+```
+
+```{r}
+#En casos de cálculos de larga duración, poner la invalidación al terminar el cálculo (on.exit)
+
+x <- reactive({
+on.exit(invalidateLater(500), add = TRUE)
+Sys.sleep(1)
+10
+})
+```
+
+##15.5.3 Precisión
+
+```{r}
+
+#Ejemplo de simulación: la distancia no representa un recorrido físico real, sino una simulación dentro del espacio computacional, basada en el paso del tiempo medido por la computadora. Sería: cuánto habría avanzado un objeto si se moviera con velocidad constante, según el tiempo real que pasó entre ejecuciones.
+
+#elapsed, es el tercero ([[3]]) → mide el tiempo real transcurrido.
+
+velocity <- 3
+r <- reactiveValues(distance = 1)
+last <- proc.time()[[3]]   #guarda el momento actual (como si fuera una foto del reloj)
+observe({
+cur <- proc.time()[[3]]    # se saca una nueva “foto del reloj”
+time <- last - cur         # se calcula cuánto tiempo pasó desde la última vez
+last <<- cur               # se actualiza la variable global last
+r$distance <- isolate(r$distance) + velocity * time     #cálculo de distancia
+invalidateLater(100)
+})
+
+```
+
+##15.5.4Ejercicios
+
+###1
+
+```{r}
+#1. ¿Por qué nunca se ejecutará este reactivo? Tu explicación debería abordar el gráfico reactivo y la invalidación.
+
+server <- function(input, output, session) {
+x <- reactive({
+invalidateLater(500)
+rnorm(10)
+})
+}
+
+##Rta: no se ejecutaría porque no tiene output, entonces aunque exista el invalidateLater (que debería activar el reactive cada 500 ms), al no tener quien lo "llame" no se ejecuta
+```
+
+###2
+
+```{r}
+#2. Si está familiarizado con SQL, utilice reactivePoll() para releer solo una tabla imaginaria de "Resultados" cada vez que se agrega una nueva fila. Se puede asumir que la tabla de Resultados tiene un campo timestamp que contiene la fecha y hora en que se agregó un registro.
+
+
+#Sería algo así pero en SQL
+
+data <- reactivePoll(1000, session,
+  function() file.mtime("data.csv"),
+  function() read.csv("data.csv")
+)
+
+
+#y en SQL (no conozco este lenguaje, habría que chequear si está bien)
+
+data <- reactivePoll(1000, session,
+  function() dbGetQuery(con, "SELECT MAX(timestamp) FROM Results"),
+  function() dbReadTable(con, "Results")
+)
+
+
+```
+
+
+
+
