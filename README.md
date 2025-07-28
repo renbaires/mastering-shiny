@@ -36,6 +36,9 @@ Hay aproximadamente tres tipos de compromiso con el club de lectura y los tres s
 #### Bienvenida
 [Presentación de bienvenida y pautas del encuentro](https://ariibard.github.io/mastering-shiny-welcome/#/club-de-lectura). Elaborado por Ariana Bardauil - organizadora R en Buenos Aires.
 
+#### Cierre 
+[Presentación de cierre y resumen del encuentro](https://renbaires.github.io/mastering-shiny-goodbye/#/club-de-lectura). Elaborado por Ariana Bardauil, Andrea Gomez Vargas & Jesica Formoso - organizadoras.
+
 #### Expositores 
 
 | Encuentro   | Fecha       | Capítulo                    | Presentadores              | Materiales                                    | 
